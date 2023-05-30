@@ -86,10 +86,9 @@ class Loss(abc.ABC):
 
             Other Keys are described in the `hyperparameters` section.
         """
-        self._loss_parameters = {}
-        self._loss_parameters["reduction"] = hyperparam_dict.get(
-            "reduction", DEFAULT_REDUCTION
-        )
+        self._loss_parameters = {
+            "reduction": hyperparam_dict.get("reduction", DEFAULT_REDUCTION)
+        }
         assert self._loss_parameters["reduction"] in [
             "sum",
             "mean",
@@ -106,13 +105,11 @@ class Loss(abc.ABC):
             self._init_hyperparams(hyperparam_dict)
             if verbose:
                 logger.info("\n--------- Loss ---------")
-                logger.info("Name : {}".format(self.name))
+                logger.info(f"Name : {self.name}")
                 for key, value in self._loss_parameters.items():
-                    logger.info("{} : {}".format(key, value))
+                    logger.info(f"{key} : {value}")
         except KeyError as e:
-            msg = "Some of the hyperparams for loss were not passed to the loss function.\n{}".format(
-                e
-            )
+            msg = f"Some of the hyperparams for loss were not passed to the loss function.\n{e}"
             logger.error(msg)
             raise Exception(msg)
 
@@ -206,12 +203,10 @@ class Loss(abc.ABC):
             The loss value that must be minimized.
         """
 
-        loss_values = []
-
         scores_neg = tf.reshape(scores_neg, [eta, -1])
 
         loss = self._apply_loss(scores_pos, scores_neg)
-        loss_values.append(tf.reduce_sum(loss))
+        loss_values = [tf.reduce_sum(loss)]
         if regularization_losses:
             regularization_losses = losses_utils.cast_losses_to_common_dtype(
                 regularization_losses
@@ -302,10 +297,9 @@ class PairwiseLoss(Loss):
         margin = tf.constant(
             self._loss_parameters["margin"], dtype=tf.float32, name="margin"
         )
-        loss = self._reduce_sample_loss(
+        return self._reduce_sample_loss(
             tf.maximum(margin - scores_pos + scores_neg, 0)
         )
-        return loss
 
 
 @register_loss("nll")
@@ -458,10 +452,9 @@ class AbsoluteMarginLoss(Loss):
         margin = tf.constant(
             self._loss_parameters["margin"], dtype=tf.float32, name="margin"
         )
-        loss = self._reduce_sample_loss(
+        return self._reduce_sample_loss(
             tf.maximum(margin + scores_neg, 0) - scores_pos
         )
-        return loss
 
 
 @register_loss("self_adversarial", ["margin", "alpha"])
@@ -562,16 +555,13 @@ class SelfAdversarialLoss(Loss):
 
         p_neg = tf.nn.softmax(alpha * scores_neg, axis=0)
 
-        # Compute Loss based on eg 5
-        loss = -tf.math.log_sigmoid(
+        return -tf.math.log_sigmoid(
             margin - tf.negative(scores_pos)
         ) - self._reduce_sample_loss(
             tf.multiply(
                 p_neg, tf.math.log_sigmoid(tf.negative(scores_neg) - margin)
             )
         )
-
-        return loss
 
 
 @register_loss("multiclass_nll", [])
@@ -650,8 +640,7 @@ class NLLMulticlass(Loss):
         neg_exp = tf.exp(scores_neg)
         pos_exp = tf.exp(scores_pos)
         softmax_score = pos_exp / (self._reduce_sample_loss(neg_exp) + pos_exp)
-        loss = -tf.math.log(softmax_score)
-        return loss
+        return -tf.math.log(softmax_score)
 
 
 class LossFunctionWrapper(Loss):
@@ -760,7 +749,6 @@ def get(identifier, hyperparams={}):
         return LOSS_REGISTRY.get(identifier)(hyperparams)
     elif callable(identifier):
         loss_name = identifier.__name__
-        wrapped_callable = LossFunctionWrapper(identifier, loss_name)
-        return wrapped_callable
+        return LossFunctionWrapper(identifier, loss_name)
     else:
         raise ValueError("Could not interpret loss identifier:", identifier)

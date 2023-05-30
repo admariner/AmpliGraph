@@ -119,9 +119,7 @@ class EmbeddingLookupLayer(tf.keras.layers.Layer):
         if isinstance(initializer, list):
             assert (
                 len(initializer) == 2
-            ), "Incorrect length for initializer. Assumed 2 got {}".format(
-                len(initializer)
-            )
+            ), f"Incorrect length for initializer. Assumed 2 got {len(initializer)}"
             self.ent_init = tf.keras.initializers.get(initializer[0])
             self.rel_init = tf.keras.initializers.get(initializer[1])
         else:
@@ -145,9 +143,7 @@ class EmbeddingLookupLayer(tf.keras.layers.Layer):
         if isinstance(regularizer, list):
             assert (
                 len(regularizer) == 2
-            ), "Incorrect length for regularizer. Expected 2, got {}".format(
-                len(regularizer)
-            )
+            ), f"Incorrect length for regularizer. Expected 2, got {len(regularizer)}"
             self.ent_regularizer = tf.keras.regularizers.get(regularizer[0])
             self.rel_regularizer = tf.keras.regularizers.get(regularizer[1])
         else:
@@ -189,77 +185,73 @@ class EmbeddingLookupLayer(tf.keras.layers.Layer):
 
         The trainable weights are created based on the hyperparams.
         """
-        # create the trainable variables for entity embeddings
-        if self._has_enough_args_to_build_ent_emb:
-            self.ent_emb = self.add_weight(
-                "ent_emb",
-                shape=[self._max_ent_size_internal, self.k],
-                initializer=self.ent_init,
-                regularizer=self.ent_regularizer,
-                dtype=tf.float32,
-                trainable=True,
-            )
-
-            if self.ent_partition is not None:
-                paddings_ent = [
-                    [
-                        0,
-                        self._max_ent_size_internal
-                        - self.ent_partition.shape[0],
-                    ],
-                    [0, 0],
-                ]
-                self.ent_emb.assign(
-                    np.pad(
-                        self.ent_partition,
-                        paddings_ent,
-                        "constant",
-                        constant_values=0,
-                    )
-                )
-                del self.ent_partition
-                self.ent_partition = None
-
-        else:
+        if not self._has_enough_args_to_build_ent_emb:
             raise TypeError(
                 "Not enough arguments to build Encoding Layer. Please set max_ent_size property."
             )
 
-        # create the trainable variables for relation embeddings
-        if self._has_enough_args_to_build_rel_emb:
-            self.rel_emb = self.add_weight(
-                "rel_emb",
-                shape=[self._max_rel_size_internal, self.k],
-                initializer=self.rel_init,
-                regularizer=self.rel_regularizer,
-                dtype=tf.float32,
-                trainable=True,
-            )
+        self.ent_emb = self.add_weight(
+            "ent_emb",
+            shape=[self._max_ent_size_internal, self.k],
+            initializer=self.ent_init,
+            regularizer=self.ent_regularizer,
+            dtype=tf.float32,
+            trainable=True,
+        )
 
-            if self.rel_partition is not None:
-                paddings_rel = [
-                    [
-                        0,
-                        self._max_rel_size_internal
-                        - self.rel_partition.shape[0],
-                    ],
-                    [0, 0],
-                ]
-                self.rel_emb.assign(
-                    np.pad(
-                        self.rel_partition,
-                        paddings_rel,
-                        "constant",
-                        constant_values=0,
-                    )
+        if self.ent_partition is not None:
+            paddings_ent = [
+                [
+                    0,
+                    self._max_ent_size_internal
+                    - self.ent_partition.shape[0],
+                ],
+                [0, 0],
+            ]
+            self.ent_emb.assign(
+                np.pad(
+                    self.ent_partition,
+                    paddings_ent,
+                    "constant",
+                    constant_values=0,
                 )
-                del self.rel_partition
-                self.rel_partition = None
-        else:
+            )
+            del self.ent_partition
+            self.ent_partition = None
+
+        if not self._has_enough_args_to_build_rel_emb:
             raise TypeError(
                 "Not enough arguments to build Encoding Layer. Please set max_rel_size property."
             )
 
+        self.rel_emb = self.add_weight(
+            "rel_emb",
+            shape=[self._max_rel_size_internal, self.k],
+            initializer=self.rel_init,
+            regularizer=self.rel_regularizer,
+            dtype=tf.float32,
+            trainable=True,
+        )
+
+        if self.rel_partition is not None:
+            paddings_rel = [
+                [
+                    0,
+                    self._max_rel_size_internal
+                    - self.rel_partition.shape[0],
+                ],
+                [0, 0],
+            ]
+            self.rel_emb.assign(
+                np.pad(
+                    self.rel_partition,
+                    paddings_rel,
+                    "constant",
+                    constant_values=0,
+                )
+            )
+            del self.rel_partition
+            self.rel_partition = None
         self.built = True
 
     def partition_change_updates(self, partition_ent_emb, partition_rel_emb):

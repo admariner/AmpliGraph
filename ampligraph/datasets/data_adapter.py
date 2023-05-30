@@ -138,7 +138,8 @@ class DataHandler:
         return self._parent_adapter.backend.mapper
 
     def get_update_partitioner_metadata(self, filepath):
-        out_dict = {}
-        if self.using_partitioning:
-            out_dict = self._adapter.get_update_metadata(filepath)
-        return out_dict
+        return (
+            self._adapter.get_update_metadata(filepath)
+            if self.using_partitioning
+            else {}
+        )

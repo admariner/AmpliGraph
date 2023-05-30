@@ -163,16 +163,7 @@ def train_test_split_no_unseen(
             idx_train.append(idx)
 
     if len(idx_test) != test_size:
-        # if we cannot get the test set of required size that means we cannot get unique triples
-        # in the test set without creating unseen entities
-        if allow_duplication:
-            # if duplication is allowed, randomly choose from the existing test
-            # set and create duplicates
-            duplicate_idx = np.random.choice(
-                idx_test, size=(test_size - len(idx_test))
-            ).tolist()
-            idx_test.extend(list(duplicate_idx))
-        else:
+        if not allow_duplication:
             # throw an exception since we cannot get unique triples in the test set without creating
             # unseen entities
             raise Exception(
@@ -183,6 +174,12 @@ def train_test_split_no_unseen(
                 "set test_size to a smaller value."
             )
 
+        # if duplication is allowed, randomly choose from the existing test
+        # set and create duplicates
+        duplicate_idx = np.random.choice(
+            idx_test, size=(test_size - len(idx_test))
+        ).tolist()
+        idx_test.extend(list(duplicate_idx))
     if X_train is None:
         X_train = X_test_candidates[idx_train]
     else:
@@ -221,9 +218,7 @@ def filter_unseen_entities(X, model, verbose=False):
     filtered_df = df[df.s.isin(ent_seen) & df.o.isin(ent_seen)]
     n_removed_ents = df.shape[0] - filtered_df.shape[0]
     if n_removed_ents > 0:
-        msg = "Removing {} triples containing unseen entities. ".format(
-            n_removed_ents
-        )
+        msg = f"Removing {n_removed_ents} triples containing unseen entities. "
         if verbose:
             logger.info(msg)
         logger.debug(msg)
@@ -250,7 +245,7 @@ def _flatten_nested_keys(dictionary):
         k: v for k, v in dictionary.items() if k not in nested_keys
     }
     # Return merged dicts
-    return {**dictionary_without_nested_keys, **flattened_nested_keys}
+    return dictionary_without_nested_keys | flattened_nested_keys
 
 
 def _unflatten_nested_keys(dictionary):
@@ -271,7 +266,7 @@ def _unflatten_nested_keys(dictionary):
         k: v for k, v in dictionary.items() if not isinstance(k, tuple)
     }
     # Return merged dicts
-    return {**dictionary_without_nested_keys, **nested_dict}
+    return dictionary_without_nested_keys | nested_dict
 
 
 def _get_param_hash(param):
@@ -350,14 +345,12 @@ def _next_hyperparam(param_grid):
         # Get one single parameter combination as a flattened dictionary
         param = dict(zip(flattened_param_grid.keys(), values))
 
-        # Only yield unique parameter combinations
         if param in param_history:
             continue
-        else:
-            param_history.add(param)
-            # Yields nested configuration (unflattened) without useless
-            # parameters
-            yield _unflatten_nested_keys(param)
+        param_history.add(param)
+        # Yields nested configuration (unflattened) without useless
+        # parameters
+        yield _unflatten_nested_keys(param)
 
 
 def _sample_parameters(param_grid):
@@ -415,12 +408,10 @@ def _next_hyperparam_random(param_grid):
     while True:
         param = _sample_parameters(param_grid)
 
-        # Only yield unique parameter combinations
         if param in param_history:
             continue
-        else:
-            param_history.add(param)
-            yield param
+        param_history.add(param)
+        yield param
 
 
 def _scalars_into_lists(param_grid):
@@ -723,11 +714,7 @@ def select_best_model_ranking(
     else:
         X_filter = None
 
-    if use_test_for_selection:
-        selection_dataset = X_test
-    else:
-        selection_dataset = X_valid
-
+    selection_dataset = X_test if use_test_for_selection else X_valid
     experimental_history = []
 
     def evaluation(ranks):
@@ -804,8 +791,6 @@ def select_best_model_ranking(
                     "Exception occurred for parameters:{}".format(model_params)
                 )
                 logger.error(str(e))
-            else:
-                pass
         experimental_history.append(current_result)
         print("Combination tried, on to the next one!")
     if best_model is not None:

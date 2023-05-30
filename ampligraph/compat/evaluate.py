@@ -157,15 +157,11 @@ def evaluate_performance(
         "s,o",
     ], "Invalid value for corrupt_side."
 
-    if isinstance(filter_triples, np.ndarray) or isinstance(
-        filter_triples, list
-    ):
+    if isinstance(filter_triples, (np.ndarray, list)):
         filter_triples = {"valid": filter_triples}
     elif filter_triples is None or not filter_triples:
         filter_triples = False
-    elif isinstance(filter_triples, dict):
-        pass
-    else:
+    elif not isinstance(filter_triples, dict):
         raise ValueError("Incorrect type for filter_triples")
 
     return model.evaluate(

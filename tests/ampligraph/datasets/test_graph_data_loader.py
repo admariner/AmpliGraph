@@ -34,7 +34,7 @@ def graph_data_loader(request, data_source):
 def test_graph_data_loader_get_batch_generator(graph_data_loader):
     batch_gen = graph_data_loader.get_batch_generator()
     batch = next(batch_gen)
-    assert np.shape(batch) == (1,3), "batch size is wrong, got {}".format(batch)
+    assert np.shape(batch) == (1,3), f"batch size is wrong, got {batch}"
 
 def test_graph_data_loader_get_data_size(graph_data_loader):
     size = graph_data_loader.get_data_size()
@@ -46,7 +46,9 @@ def test_graph_data_loader_get_complementary_subjects(graph_data_loader):
     sample_inds = graph_data_loader.backend.mapper.get_indexes(sample, type_of="t")
     subjects = graph_data_loader.get_complementary_subjects(sample_inds)
     expected = [[0, 1],[0, 1]]
-    assert [set(x) for x in subjects] == [set(x) for x in expected], "Subjects differ, expected {}, instead got {}.".format(expected, subjects)
+    assert [set(x) for x in subjects] == [
+        set(x) for x in expected
+    ], f"Subjects differ, expected {expected}, instead got {subjects}."
 
 
 def test_graph_data_loader_get_complementary_objects(graph_data_loader):
@@ -54,7 +56,9 @@ def test_graph_data_loader_get_complementary_objects(graph_data_loader):
     sample_inds = graph_data_loader.backend.mapper.get_indexes(sample, type_of="t")
     objects = graph_data_loader.get_complementary_objects(sample_inds)
     expected = [[1, 2], [1, 2]]
-    assert [set(x) for x in objects] == [set(x) for x in expected], "Objects differ, expected {}, instead got {} for indexes: {}.".format(expected, objects, sample_inds)
+    assert [set(x) for x in objects] == [
+        set(x) for x in expected
+    ], f"Objects differ, expected {expected}, instead got {objects} for indexes: {sample_inds}."
 
 
 def test_graph_data_loader_get_complementary_entities(graph_data_loader):
@@ -62,16 +66,22 @@ def test_graph_data_loader_get_complementary_entities(graph_data_loader):
     sample_inds = graph_data_loader.backend.mapper.get_indexes(sample, type_of="t")
     subjects, objects = graph_data_loader.get_complementary_entities(sample_inds)
     expected = [[0, 1]]
-    assert [set(x) for x in subjects] == [set(x) for x in expected], "Subjects differ, expected {}, instead got {}.".format(subjects, expected)
+    assert [set(x) for x in subjects] == [
+        set(x) for x in expected
+    ], f"Subjects differ, expected {subjects}, instead got {expected}."
     expected = [[1, 2]]
-    assert [set(x) for x in objects] == [set(x) for x in expected], "Objects differ, expected {}, instead got {}.".format(objects, expected)
+    assert [set(x) for x in objects] == [
+        set(x) for x in expected
+    ], f"Objects differ, expected {objects}, instead got {expected}."
 
 
 def test_graph_data_loader_get_triples(graph_data_loader):
     entities = ['a','c']
     entities_inds = graph_data_loader.backend.mapper.get_indexes(entities, type_of="e")
     triples = graph_data_loader.get_triples(entities=entities_inds)
-    assert np.array_equal(triples, np.array([[0, 0, 1, 'train']])), "Returned indexes should be , instead got {} for the following indexes: {}.".format(triples, entities_inds)
+    assert np.array_equal(
+        triples, np.array([[0, 0, 1, 'train']])
+    ), f"Returned indexes should be , instead got {triples} for the following indexes: {entities_inds}."
 
 def test_backends_with_filters():
     train = np.array([[1,1,2], [1,1,3],[1,1,4],[5,1,3],[5,1,4],[6,1,3],[6,1,2],[6,1,4],[6,1,7]])
@@ -82,12 +92,12 @@ def test_backends_with_filters():
     # complementary objects to 1,1,?: train: 2, 3, 4, test: 5, val: 6 
     # complementary subjects to ?,1,2: train: 1, 6, test: 3, 5, val: 2
 
-    data_dummy = GraphDataLoader(train, batch_size=1, dataset_type="train", use_filter=use_filter)   
+    data_dummy = GraphDataLoader(train, batch_size=1, dataset_type="train", use_filter=use_filter)
     triple = np.array([[0,0,1]])
     data_db = GraphDataLoader(train, batch_size=1, dataset_type="train", backend=SQLiteAdapter, use_filter=use_filter)
     data_db.add_dataset(test, dataset_type='test')
     data_db.add_dataset(val, dataset_type='val')    
-    
+
     dummy = data_dummy.backend.mapper.get_indexes(data_dummy.get_complementary_objects(triple, use_filter=use_filter)[0], type_of='e', order='ind2raw')
     db = data_db.backend.mapper.get_indexes(data_db.get_complementary_objects(triple, use_filter=use_filter)[0], type_of='e', order='ind2raw')
-    assert np.array_equal(dummy, db), "Backends differ: dummy: {}, db: {}".format(dummy, db) 
+    assert np.array_equal(dummy, db), f"Backends differ: dummy: {dummy}, db: {db}" 

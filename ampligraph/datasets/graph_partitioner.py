@@ -102,10 +102,7 @@ class AbstractGraphPartitioner(ABC):
         self.partitions = []
         self._data = data
         self._k = k
-        if root_dir is None:
-            self.root_dir = tempfile.gettempdir()
-        else:
-            self.root_dir = root_dir
+        self.root_dir = tempfile.gettempdir() if root_dir is None else root_dir
         self._split(seed=seed, batch_size=data.batch_size, **kwargs)
         self.reload()
 
@@ -176,12 +173,12 @@ class AbstractGraphPartitioner(ABC):
                 os.remove(f)
             else:
                 try:
-                    os.remove(f + ".bak")
-                    os.remove(f + ".dir")
-                    os.remove(f + ".dat")
+                    os.remove(f"{f}.bak")
+                    os.remove(f"{f}.dir")
+                    os.remove(f"{f}.dat")
                 except Exception:
-                    if os.path.exists(f + ".db"):
-                        os.remove(f + ".db")
+                    if os.path.exists(f"{f}.db"):
+                        os.remove(f"{f}.db")
 
 
 @register_partitioning_strategy("Bucket", "BucketPartitionDataManager")
@@ -277,12 +274,12 @@ class BucketGraphPartitioner(AbstractGraphPartitioner):
         # logger.debug("------------------------------------------------")
         # logger.debug("Creating partition nb: {}".format(partition_nb))
 
-        fname = "bucket_{}_{}.shf".format(ind1, timestamp)
+        fname = f"bucket_{ind1}_{timestamp}.shf"
         with shelve.open(
             os.path.join(self.root_dir, fname), writeback=True
         ) as bucket_partition_1:
             indexes_1 = bucket_partition_1["indexes"]
-        fname = "bucket_{}_{}.shf".format(ind2, timestamp)
+        fname = f"bucket_{ind2}_{timestamp}.shf"
         with shelve.open(
             os.path.join(self.root_dir, fname), writeback=True
         ) as bucket_partition_2:
@@ -298,14 +295,14 @@ class BucketGraphPartitioner(AbstractGraphPartitioner):
             self._data.get_triples(subjects=indexes_2, objects=indexes_1)
         )[:, :3]
 
-        logger.debug("triples 1-2: {}".format(triples_1_2))
-        logger.debug("triples 2-1: {}".format(triples_2_1))
+        logger.debug(f"triples 1-2: {triples_1_2}")
+        logger.debug(f"triples 2-1: {triples_2_1}")
         triples = np.vstack([triples_1_2, triples_2_1]).astype(np.int32)
         # logger.debug(triples)
         if triples.size != 0:
             triples = np.unique(triples, axis=0)
             # logger.debug("unique triples: {}".format(triples))
-            fname = "partition_{}_{}.csv".format(partition_nb, timestamp)
+            fname = f"partition_{partition_nb}_{timestamp}.csv"
             fname = os.path.join(self.root_dir, fname)
             self.files.append(fname)
             np.savetxt(fname, triples, delimiter="\t", fmt="%d")
@@ -318,9 +315,7 @@ class BucketGraphPartitioner(AbstractGraphPartitioner):
                 batch_size=batch_size,
                 remap=True,
                 parent=self._data,
-                name="partition_{}_buckets_{}-{}".format(
-                    partition_nb, ind1, ind2
-                ),
+                name=f"partition_{partition_nb}_buckets_{ind1}-{ind2}",
             )
             self.partitions.append(partition_loader)
             return 0  # status everything went ok
@@ -345,12 +340,12 @@ class BucketGraphPartitioner(AbstractGraphPartitioner):
 
         for i, bucket in enumerate(self.buckets_generator):
             # dump entities in partition shelve/file
-            fname = "bucket_{}_{}.shf".format(i, timestamp)
+            fname = f"bucket_{i}_{timestamp}.shf"
             fname = os.path.join(self.root_dir, fname)
             self.files.append(fname)
             with shelve.open(fname, writeback=True) as bucket_partition:
                 bucket_partition["indexes"] = bucket
-            # logger.debug(bucket)
+                # logger.debug(bucket)
 
         partition_nb = 0
         # ensure that the "same" bucket partitions are generated first
@@ -471,7 +466,7 @@ class RandomVerticesGraphPartitioner(AbstractGraphPartitioner):
             if tmp.size != 0:
                 triples = tmp[:, :3].astype(np.int32)
                 # logger.debug("unique triples: {}".format(triples))
-                fname = "partition_{}_{}.csv".format(partition_nb, timestamp)
+                fname = f"partition_{partition_nb}_{timestamp}.csv"
                 fname = os.path.join(self.root_dir, fname)
                 self.files.append(fname)
                 np.savetxt(fname, triples, delimiter="\t", fmt="%d")
@@ -484,7 +479,7 @@ class RandomVerticesGraphPartitioner(AbstractGraphPartitioner):
                     batch_size=batch_size,
                     remap=True,
                     parent=self._data,
-                    name="partition_{}".format(partition_nb),
+                    name=f"partition_{partition_nb}",
                 )
                 self.partitions.append(partition_loader)
             else:
@@ -573,7 +568,7 @@ class EdgeBasedGraphPartitioner(AbstractGraphPartitioner):
         )
 
         for partition_nb, partition in enumerate(generator):
-            fname = "partition_{}_{}.csv".format(partition_nb, timestamp)
+            fname = f"partition_{partition_nb}_{timestamp}.csv"
             fname = os.path.join(self.root_dir, fname)
             self.files.append(fname)
             np.savetxt(
@@ -588,7 +583,7 @@ class EdgeBasedGraphPartitioner(AbstractGraphPartitioner):
                 batch_size=batch_size,
                 remap=True,
                 parent=self._data,
-                name="partition_{}".format(partition_nb),
+                name=f"partition_{partition_nb}",
             )
             self.partitions.append(partition_loader)
 

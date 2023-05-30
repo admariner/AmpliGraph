@@ -56,8 +56,8 @@ def test_reciprocals():
     reciprocal_triple = train_reciprocal[train_reciprocal.shape[0]//2]
     assert(triple[0]==reciprocal_triple[2])
     assert(triple[2]==reciprocal_triple[0])
-    assert(triple[1]+'_reciprocal'==reciprocal_triple[1])
-    
+    assert f'{triple[1]}_reciprocal' == reciprocal_triple[1]
+
     # create the same dataset without reciprocals. Now the number of triples should be half of prev
     fb15k = load_fb15k(add_reciprocal_rels=False)
     assert(fb15k['train'].shape[0]==train_reciprocal.shape[0]//2)

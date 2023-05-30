@@ -34,10 +34,13 @@ class OptimizerWrapper(abc.ABC):
 
         # workaround for Adagrad/Adadelta/Ftrl optimizers to work on gpu
         self.gpu_workaround = False
-        if (
-            isinstance(self.optimizer, tf.keras.optimizers.Adadelta)
-            or isinstance(self.optimizer, tf.keras.optimizers.Adagrad)
-            or isinstance(self.optimizer, tf.keras.optimizers.Ftrl)
+        if isinstance(
+            self.optimizer,
+            (
+                tf.keras.optimizers.Adadelta,
+                tf.keras.optimizers.Adagrad,
+                tf.keras.optimizers.Ftrl,
+            ),
         ):
             self.gpu_workaround = True
 
@@ -164,13 +167,10 @@ class OptimizerWrapper(abc.ABC):
 
     @classmethod
     def from_config(cls, config):
-        new_config = {}
-        new_config["class_name"] = config["name"]
-
+        new_config = {"class_name": config["name"]}
         del config["name"]
         new_config["config"] = config
-        optimizer = tf.keras.optimizers.get(new_config)
-        return optimizer
+        return tf.keras.optimizers.get(new_config)
 
 
 def get(identifier):

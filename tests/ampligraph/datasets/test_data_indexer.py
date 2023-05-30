@@ -33,13 +33,17 @@ def data_indexer(request, data_type):
 
 def test_get_max_ents_index(data_indexer):
     max_ents = data_indexer.backend._get_max_ents_index()
-    assert max_ents == 3, "Max index should be 3 for 4 unique entities, instead got {}.".format(max_ents)
+    assert (
+        max_ents == 3
+    ), f"Max index should be 3 for 4 unique entities, instead got {max_ents}."
 
 
 def test_get_max_rels_index(data_indexer):
     print(data_indexer)
     max_rels = data_indexer.backend._get_max_rels_index()
-    assert max_rels == 1, "Max index should be 1 for 2 unique relations, instead got {}.".format(max_rels)
+    assert (
+        max_rels == 1
+    ), f"Max index should be 1 for 2 unique relations, instead got {max_rels}."
 
 
 def test_get_entities_in_batches(data_indexer):

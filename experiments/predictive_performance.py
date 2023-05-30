@@ -68,17 +68,19 @@ def display_scores(scores, root=None):
 
     for obj in scores:
         try:
-            output_rst[obj["dataset"]] \
-                .append_row([obj["model"],
-                             "{0:.1f}".format(obj["mr"]),
-                             "{0:.4f}".format(obj["mrr"]),
-                             "{0:.3f}".format(obj["H@1"]),
-                             "{0:.3f}".format(obj["H@3"]),
-                             "{0:.3f}".format(obj["H@10"]),
-                             "{0:.1f}".format(obj["time"]),
-                             "{}".format(obj["early_stopping_epoch"]),
-                             yaml.dump(obj["hyperparams"],
-                                       default_flow_style=False)])
+            output_rst[obj["dataset"]].append_row(
+                [
+                    obj["model"],
+                    "{0:.1f}".format(obj["mr"]),
+                    "{0:.4f}".format(obj["mrr"]),
+                    "{0:.3f}".format(obj["H@1"]),
+                    "{0:.3f}".format(obj["H@3"]),
+                    "{0:.3f}".format(obj["H@10"]),
+                    "{0:.1f}".format(obj["time"]),
+                    f'{obj["early_stopping_epoch"]}',
+                    yaml.dump(obj["hyperparams"], default_flow_style=False),
+                ]
+            )
         except:
             output_rst[obj["dataset"]] \
                 .append_row([obj["model"],
@@ -100,7 +102,7 @@ def display_scores(scores, root=None):
             f.write(str(output_rst))
         with open(name, "w") as f:
             f.write(json.dumps(out))
-        print("Experiments' results saved in {}.".format(name))
+        print(f"Experiments' results saved in {name}.")
 
 
     for key, value in output_rst.items():
@@ -109,7 +111,7 @@ def display_scores(scores, root=None):
 
 
 def run_single_exp(config, dataset, model, root=None):
-    print("Run single experiment for {} and {}".format(dataset, model))
+    print(f"Run single experiment for {dataset} and {model}")
     start_time = time.time()
     print("Started: ",start_time)
 
@@ -180,9 +182,9 @@ def run_single_exp(config, dataset, model, root=None):
     if root is not None: 
         fmt='%Y-%m-%d-%H-%M-%S'
         date = datetime.datetime.now().strftime(fmt)
-        name = "{}/{}-{}-{}".format(root, model_name, dataset, date)
+        name = f"{root}/{model_name}-{dataset}-{date}"
         save_model(model, name)
-        print("Model saved in {}.".format(name))
+        print(f"Model saved in {name}.")
 
 
     # Run the evaluation procedure on the test set. Will create filtered rankings.
@@ -211,10 +213,10 @@ def run_single_exp(config, dataset, model, root=None):
         "early_stopping_epoch": early_stopping_epoch
     }
     if root is not None:
-        name = "{}/result_{}_{}_{}.json".format(root, model_name, dataset, date)
+        name = f"{root}/result_{model_name}_{dataset}_{date}.json"
         with open(name, "w") as f:
             f.write(json.dumps(result))
-        print("Results saved in the file: {}".format(name))
+        print(f"Results saved in the file: {name}")
 
     return result 
 
@@ -254,19 +256,31 @@ def train_model(dataset, model, config, gpu, root):
 
 if __name__ == "__main__":
     arguments = docopt(__doc__, version='Train KGE model on benchmark data')
-    schema = Schema({'--dataset': And(Use(lambda s: s.split(',')),
-                                                              lambda l: all([1 if elem.lower() in SUPPORT_DATASETS else 0 for elem in l])),
-                     '--model': And(Use(lambda s: s.split(',')),
-                                                              lambda l: all([1 if elem.lower() in SUPPORT_MODELS else 0 for elem in l])),
-                         object: object})  # don't validate other keys
-    
+    schema = Schema(
+        {
+            '--dataset': And(
+                Use(lambda s: s.split(',')),
+                lambda l: all(
+                    1 if elem.lower() in SUPPORT_DATASETS else 0 for elem in l
+                ),
+            ),
+            '--model': And(
+                Use(lambda s: s.split(',')),
+                lambda l: all(
+                    1 if elem.lower() in SUPPORT_MODELS else 0 for elem in l
+                ),
+            ),
+            object: object,
+        }
+    )
+
     schema.validate(arguments)
 
 
-    dataset = arguments['--dataset'] 
-    config = arguments['--cfg'] 
+    dataset = arguments['--dataset']
+    config = arguments['--cfg']
     model = arguments['--model']
-    gpu = arguments['--gpu'] 
+    gpu = arguments['--gpu']
     root = arguments['--save']
     if root is not None and not os.path.exists(root):
         os.mkdir(root)

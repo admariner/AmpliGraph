@@ -189,8 +189,7 @@ def rank_score(y_true, y_pred, pos_lab=1):
     logger.debug("Calculating the Rank Score.")
     idx = np.argsort(y_pred)[::-1]
     y_ord = y_true[idx]
-    rank = np.where(y_ord == pos_lab)[0][0] + 1
-    return rank
+    return np.where(y_ord == pos_lab)[0][0] + 1
 
 
 def mr_score(ranks):

@@ -101,7 +101,7 @@ def restore_model(model_name_path=None):
                         the latest default saved model..."
         )
         default_models = glob.glob("*.ampkl")
-        if len(default_models) == 0:
+        if not default_models:
             raise Exception(
                 "No default model found. Please specify \
                              model_name_path..."
@@ -113,7 +113,7 @@ def restore_model(model_name_path=None):
             "OptimizerWrapper": OptimizerWrapper,
             "embedding_lookup_layer": EmbeddingLookupLayer,
         }
-        custom_objects.update(LOSS_REGISTRY)
+        custom_objects |= LOSS_REGISTRY
 
         model = tf.keras.models.load_model(
             model_name_path, custom_objects=custom_objects
@@ -122,11 +122,11 @@ def restore_model(model_name_path=None):
         if model.is_backward:
             model = BACK_COMPAT_MODELS.get(model.scoring_type)(model)
     except pickle.UnpicklingError as e:
-        msg = "Error loading model {} : {}.".format(model_name_path, e)
+        msg = f"Error loading model {model_name_path} : {e}."
         logger.debug(msg)
         raise Exception(msg)
     except (IOError, FileNotFoundError):
-        msg = "No model found: {}.".format(model_name_path)
+        msg = f"No model found: {model_name_path}."
         logger.debug(msg)
         raise FileNotFoundError(msg)
     return model
@@ -233,7 +233,7 @@ def create_tensorboard_visualizations(
 
     # Create loc if it doesn't exist
     if not os.path.exists(loc):
-        logger.debug("Creating Tensorboard visualization directory: %s" % loc)
+        logger.debug(f"Creating Tensorboard visualization directory: {loc}")
         os.mkdir(loc)
 
     if not model.is_fit():
@@ -256,27 +256,23 @@ def create_tensorboard_visualizations(
         )
         entities_label = entities_subset
 
-    if labels is not None:
-        # Check if the lengths of the supplied labels is equal to the number of embeddings retrieved
-        if len(labels) != len(entities_label):
-            raise ValueError(
-                "Label data rows must equal number of embeddings."
-            )
-    else:
+    if labels is None:
         # If no label data supplied, use model ent_to_idx keys as labels
         labels = entities_label
 
+    elif len(labels) != len(entities_label):
+        raise ValueError(
+            "Label data rows must equal number of embeddings."
+        )
     if write_metadata:
-        logger.debug("Writing metadata.tsv to: %s" % loc)
+        logger.debug(f"Writing metadata.tsv to: {loc}")
         write_metadata_tsv(loc, labels)
 
     embeddings = model.get_embeddings(entities_label)
 
     if export_tsv_embeddings:
         tsv_filename = "embeddings_projector.tsv"
-        logger.info(
-            "Writing embeddings tsv to: %s" % os.path.join(loc, tsv_filename)
-        )
+        logger.info(f"Writing embeddings tsv to: {os.path.join(loc, tsv_filename)}")
         np.savetxt(os.path.join(loc, tsv_filename), embeddings, delimiter="\t")
 
     # Create a checkpoint with the embeddings only
@@ -344,11 +340,8 @@ def dataframe_to_triples(X, schema):
     """
     triples = []
     request_headers = set(np.delete(np.array(schema), 1, 1).flatten())
-    diff = request_headers.difference(set(X.columns))
-    if len(diff) > 0:
-        raise Exception(
-            "Subject/Object {} are not in data frame headers".format(diff)
-        )
+    if diff := request_headers.difference(set(X.columns)):
+        raise Exception(f"Subject/Object {diff} are not in data frame headers")
     for s, p, o in schema:
         triples.extend([[si, p, oi] for si, oi in zip(X[s], X[o])])
     return np.array(triples)
@@ -401,7 +394,5 @@ def preprocess_focusE_weights(data, weights, normalize=True):
                         - min_val
                     ) / (max_val - min_val)
                     weights[data[:, 1] == reln, col_idx] = val
-            else:
-                pass  # all the weights are nans
     weights = np.mean(weights, axis=1).reshape(-1, 1)
     return weights

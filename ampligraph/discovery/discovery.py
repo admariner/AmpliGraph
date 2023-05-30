@@ -182,7 +182,7 @@ def discover_facts(
         "cluster_triangles",
         "cluster_squares",
     ]:
-        msg = "%s is not a valid strategy." % strategy
+        msg = f"{strategy} is not a valid strategy."
         logger.error(msg)
         raise ValueError(msg)
 
@@ -192,9 +192,7 @@ def discover_facts(
 
     if isinstance(max_candidates, float):
         logger.debug(
-            "Converting max_candidates float value {} to int value {}".format(
-                max_candidates, int(max_candidates * len(X))
-            )
+            f"Converting max_candidates float value {max_candidates} to int value {int(max_candidates * len(X))}"
         )
         max_candidates = int(max_candidates * len(X))
 
@@ -204,17 +202,14 @@ def discover_facts(
     if target_rel is None:
         msg = "No target relation specified. Using all relations to generate candidate statements."
         logger.info(msg)
-        rel_list = [x for x in model.data_indexer.backend.get_all_relations()]
+        rel_list = list(model.data_indexer.backend.get_all_relations())
     else:
-        missing_rels = []
-        for rel in target_rel:
-            if rel not in model.data_indexer.backend.get_all_relations():
-                missing_rels.append(rel)
-
-        if len(missing_rels) > 0:
-            msg = "Target relation(s) not found in model: {}".format(
-                missing_rels
-            )
+        if missing_rels := [
+            rel
+            for rel in target_rel
+            if rel not in model.data_indexer.backend.get_all_relations()
+        ]:
+            msg = f"Target relation(s) not found in model: {missing_rels}"
             logger.error(msg)
             raise ValueError(msg)
 
@@ -231,7 +226,7 @@ def discover_facts(
 
     # Iterate through relations
     for relation in rel_list:
-        logger.info("Generating candidates for relation: %s" % relation)
+        logger.info(f"Generating candidates for relation: {relation}")
 
         candidates = generate_candidates(
             X, strategy, relation, max_candidates, seed=seed
@@ -332,7 +327,7 @@ def generate_candidates(
         "cluster_triangles",
         "cluster_squares",
     ]:
-        msg = "%s is not a valid candidate generation strategy." % strategy
+        msg = f"{strategy} is not a valid candidate generation strategy."
         raise ValueError(msg)
 
     if target_rel not in np.unique(X[:, 1]):
@@ -451,7 +446,7 @@ def generate_candidates(
 
         # Calculate node metrics
         if strategy == "graph_degree":
-            C = {i: j for i, j in G.degree()}
+            C = dict(G.degree())
         elif strategy == "cluster_coefficient":
             C = nx.algorithms.cluster.clustering(G)
         elif strategy == "cluster_triangles":
@@ -672,9 +667,7 @@ ClusteringAndClassificationWithEmbeddings.ipynb
 
     modes = ("t", "e", "r")
     if mode not in modes:
-        msg = "Argument `mode` must be one of the following: {}.".format(
-            ", ".join(modes)
-        )
+        msg = f'Argument `mode` must be one of the following: {", ".join(modes)}.'
         logger.error(msg)
         raise ValueError(msg)
 
@@ -1057,14 +1050,14 @@ def query_topn(
         logger.error(msg)
         raise ValueError(msg)
 
-    if not np.sum([head is None, relation is None, tail is None]) == 1:
+    if np.sum([head is None, relation is None, tail is None]) != 1:
         msg = "Exactly one of `head`, `relation` or `tail` arguments must be None."
         logger.error(msg)
         raise ValueError(msg)
 
     if head:
         if head not in list(model.data_indexer.backend.get_all_entities()):
-            msg = "Head entity `{}` not seen by model".format(head)
+            msg = f"Head entity `{head}` not seen by model"
             logger.error(msg)
             raise ValueError(msg)
 
@@ -1072,13 +1065,13 @@ def query_topn(
         if relation not in list(
             model.data_indexer.backend.get_all_relations()
         ):
-            msg = "Relation `{}` not seen by model".format(relation)
+            msg = f"Relation `{relation}` not seen by model"
             logger.error(msg)
             raise ValueError(msg)
 
     if tail:
         if tail not in list(model.data_indexer.backend.get_all_entities()):
-            msg = "Tail entity `{}` not seen by model".format(tail)
+            msg = f"Tail entity `{tail}` not seen by model"
             logger.error(msg)
             raise ValueError(msg)
 
@@ -1091,8 +1084,8 @@ def query_topn(
             msg = "`ents_to_consider` must be a list or numpy array."
             logger.error(msg)
             raise ValueError(msg)
-        if not all(
-            x in list(model.data_indexer.backend.get_all_entities())
+        if any(
+            x not in list(model.data_indexer.backend.get_all_entities())
             for x in ents_to_consider
         ):
             msg = "Entities in `ents_to_consider` have not been seen by the model."
@@ -1111,8 +1104,8 @@ def query_topn(
             msg = "`rels_to_consider` must be a list or numpy array."
             logger.error(msg)
             raise ValueError(msg)
-        if not all(
-            x in list(model.data_indexer.backend.get_all_relations())
+        if any(
+            x not in list(model.data_indexer.backend.get_all_relations())
             for x in rels_to_consider
         ):
             msg = "Relations in `rels_to_consider` have not been seen by the model."

@@ -357,10 +357,7 @@ class AbstractScoringLayer(tf.keras.layers.Layer):
 
             if filters.shape[0] > 0:
                 for i in tf.range(tf.shape(triple_score)[0]):
-                    if corrupt_side in ["s", "o"] and filters.shape[0] == 1:
-                        filter_index = 0
-                    else:
-                        filter_index = 1
+                    filter_index = 0 if corrupt_side in ["s", "o"] and filters.shape[0] == 1 else 1
                     # get the ids of True positives that needs to be filtered
                     filter_ids = filters[filter_index][i]
 

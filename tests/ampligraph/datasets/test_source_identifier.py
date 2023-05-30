@@ -31,7 +31,6 @@ def clean_data():
 def data_source(request):
     np_array, _ = create_data()
     return request.param if request.param != 'np_array'  else np_array
-    clean_data()
 
 @pytest.fixture(scope=SCOPE)
 def source_identifier(request, data_source):
@@ -43,7 +42,9 @@ def source_identifier(request, data_source):
 def test_load_csv():
     _, length = create_data()
     data = load_csv('test.csv')
-    assert len(data) == length, "Loaded data differ from what it should be, got {}, expected {}.".format(len(data), len(df))
+    assert (
+        len(data) == length
+    ), f"Loaded data differ from what it should be, got {len(data)}, expected {len(df)}."
     clean_data()
 
 def test_data_source_identifier(source_identifier):
@@ -61,5 +62,7 @@ def test_data_source_identifier_fetch_loader(source_identifier):
     src_identifier, data_src = source_identifier
     loader = src_identifier.fetch_loader()
     data = loader(data_src)
-    assert isinstance(data, np.ndarray) or isinstance(data, pd.DataFrame) or isinstance(data, type(chunks([]))), "Returned data should be either in numpy array or pandas data frame, instead got {}".format(type(data))
+    assert isinstance(
+        data, (np.ndarray, pd.DataFrame, type(chunks([])))
+    ), f"Returned data should be either in numpy array or pandas data frame, instead got {type(data)}"
 

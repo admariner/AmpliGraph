@@ -171,7 +171,7 @@ class SQLiteAdapter:
 
     def open_db(self):
         """Open the database."""
-        db_uri = "file:{}?mode=rw".format(pathname2url(self.db_path))
+        db_uri = f"file:{pathname2url(self.db_path)}?mode=rw"
         self.connection = sqlite3.connect(db_uri, uri=True)
         self.flag_db_open = True
         logger.debug("----------------DB OPENED - normally -----------------")
@@ -225,8 +225,8 @@ class SQLiteAdapter:
         db_schema: list
              List of SQL commands to create tables and indexes.
         """
-        if self.data_shape < 4:
-            db_schema = [
+        return (
+            [
                 """CREATE TABLE triples_table (subject integer,
                                         predicate integer,
                                         object integer,
@@ -239,8 +239,8 @@ class SQLiteAdapter:
                 "CREATE INDEX triples_table_subject_idx ON triples_table (subject);",
                 "CREATE INDEX triples_table_object_idx ON triples_table (object);",
             ]
-        else:  # focusE
-            db_schema = [
+            if self.data_shape < 4
+            else [
                 """CREATE TABLE triples_table (subject integer,
                                         predicate integer,
                                         object integer,
@@ -254,7 +254,7 @@ class SQLiteAdapter:
                 "CREATE INDEX triples_table_subject_idx ON triples_table (subject);",
                 "CREATE INDEX triples_table_object_idx ON triples_table (object);",
             ]
-        return db_schema
+        )
 
     def _get_clean_up(self):
         """Defines SQL commands to clean the database (tables and indexes).
@@ -264,13 +264,12 @@ class SQLiteAdapter:
         clean_up: list
              List of SQL commands to clean tables and indexes.
         """
-        clean_up = [
+        return [
             "drop index IF EXISTS triples_table_po_idx",
             "drop index IF EXISTS triples_table_sp_idx",
             "drop index IF EXISTS triples_table_type_idx",
             "drop table IF EXISTS triples_table",
         ]
-        return clean_up
 
     def _execute_query(self, query):
         """Connects to the database and execute given query.
@@ -330,27 +329,19 @@ class SQLiteAdapter:
         with self:
             if self.verbose:
                 logger.debug("inserting to a table...")
-            if len(np.shape(values)) < 2:
-                size = 1
-            else:
-                size = np.shape(values)[1]
+            size = 1 if len(np.shape(values)) < 2 else np.shape(values)[1]
             cursor = self.connection.cursor()
             try:
-                values_placeholder = "({})".format(", ".join(["?"] * size))
-                query = "INSERT INTO {} VALUES {}".format(
-                    table, values_placeholder
-                )
-                precompute = [
-                    (v,) if isinstance(v, int) or isinstance(v, str) else v
-                    for v in values
-                ]
+                values_placeholder = f'({", ".join(["?"] * size)})'
+                query = f"INSERT INTO {table} VALUES {values_placeholder}"
+                precompute = [(v,) if isinstance(v, (int, str)) else v for v in values]
                 cursor.executemany(query, precompute)
                 self.connection.commit()
                 if self.verbose:
-                    logger.debug("commited to table: {}".format(table))
+                    logger.debug(f"commited to table: {table}")
             except Error as e:
-                logger.debug("Error: {}".format(e))
-                # self.connection.rollback()
+                logger.debug(f"Error: {e}")
+                        # self.connection.rollback()
             logger.debug("Values were inserted!")
 
     def _create_database(self):
@@ -386,7 +377,7 @@ class SQLiteAdapter:
                     ",".join(str(v) for v in subjects)
                 )
             )
-        elif subjects is None:
+        else:
             query = (
                 "select * from triples_table where (object in ({0}));".format(
                     ",".join(str(v) for v in objects)
@@ -421,31 +412,30 @@ class SQLiteAdapter:
             logger.debug("getting triples...")
         if isinstance(chunk, pd.DataFrame):
             chunk = chunk.values
-        if self.use_indexer:
-            # logger.debug(chunk)
-            triples = self.mapper.get_indexes(chunk[:, :3])
-            if self.data_shape > 3:
-                weights = chunk[:, 3:]
-                # weights = preprocess_focusE_weights(data=triples,
-                #                                     weights=weights)
-                return np.hstack(
-                    [
-                        triples,
-                        weights,
-                        np.array(len(triples) * [dataset_type]).reshape(-1, 1),
-                    ]
-                )
-            return np.append(
-                triples,
-                np.array(len(triples) * [dataset_type]).reshape(-1, 1),
-                axis=1,
-            )
-        else:
+        if not self.use_indexer:
             return np.append(
                 chunk,
                 np.array(len(chunk) * [dataset_type]).reshape(-1, 1),
                 axis=1,
             )
+        # logger.debug(chunk)
+        triples = self.mapper.get_indexes(chunk[:, :3])
+        if self.data_shape > 3:
+            weights = chunk[:, 3:]
+            # weights = preprocess_focusE_weights(data=triples,
+            #                                     weights=weights)
+            return np.hstack(
+                [
+                    triples,
+                    weights,
+                    np.array(len(triples) * [dataset_type]).reshape(-1, 1),
+                ]
+            )
+        return np.append(
+            triples,
+            np.array(len(triples) * [dataset_type]).reshape(-1, 1),
+            axis=1,
+        )
 
     def index_entities(self):
         """Index the data via the definition of the DataIndexer."""
@@ -470,15 +460,13 @@ class SQLiteAdapter:
              Flag indicating whether indexing took place.
 
         """
-        if not hasattr(self, "mapper"):
-            return False
-        return True
+        return bool(hasattr(self, "mapper"))
 
     def reload_data(self, verbose=False):
         """Reinitialise an iterator with data."""
         self.data = self.loader(self.data_source, chunk_size=self.chunk_size)
         if verbose:
-            logger.debug("Data reloaded: {}".format(self.data))
+            logger.debug(f"Data reloaded: {self.data}")
 
     def populate(
         self,
@@ -583,7 +571,7 @@ class SQLiteAdapter:
              Number of records in the table.
 
         """
-        query = "SELECT count(*) from {} {};".format(table, condition)
+        query = f"SELECT count(*) from {table} {condition};"
         count = self._execute_query(query)
         if count is None:
             logger.debug("Table is empty or not such table exists.")
@@ -641,7 +629,7 @@ class SQLiteAdapter:
 
                     query = query.format(triple[0], triple[1], filter_name)
                     q = self._execute_query(query)
-                    tmp = list(set([y for x in q for y in x]))
+                    tmp = list({y for x in q for y in x})
                     tmp_filter.append(tmp)
                 filtered.append(tmp_filter)
         # Unpack data into one list per triple no matter what filter
@@ -691,7 +679,7 @@ class SQLiteAdapter:
 
                     query = query.format(triple[1], triple[2], filter_name)
                     q = self._execute_query(query)
-                    tmp = list(set([y for x in q for y in x]))
+                    tmp = list({y for x in q for y in x})
                     tmp_filter.append(tmp)
                 filtered.append(tmp_filter)
         # Unpack data into one  list per triple no matter what
@@ -766,16 +754,11 @@ class SQLiteAdapter:
         size = self.get_data_size(condition=cond)
         # focusE: size ppi55k = 230929
         self.batches_count = int(np.ceil(size / batch_size))
-        logger.debug("batches count: {}".format(self.batches_count))
-        logger.debug("size of data: {}".format(size))
+        logger.debug(f"batches count: {self.batches_count}")
+        logger.debug(f"size of data: {size}")
         index = ""
         if index_by != "":
-            if (
-                index_by == "s"
-                or index_by == "o"
-                or index_by == "so"
-                or index_by == "os"
-            ) and random:
+            if index_by in ["s", "o", "so", "os"] and random:
                 msg = "Field index_by can only be used with random set\
                         to False and can only take values from this\
                         set: {{s,o,so,os,''}},\
@@ -789,9 +772,9 @@ class SQLiteAdapter:
                 index = "ORDER BY subject"
             if index_by == "o":
                 index = "ORDER BY object"
-            if index_by == "so" or index_by == "os":
+            if index_by in ["so", "os"]:
                 index = "ORDER BY subject, object"
-            if index == "" and random:
+            if not index and random:
                 index = "ORDER BY random()"
         query_template = "SELECT * FROM triples_table INDEXED BY \
                  triples_table_type_idx where\
@@ -803,10 +786,7 @@ class SQLiteAdapter:
             query = query_template.format(
                 dataset_type, index, i * batch_size, batch_size
             )
-            # logger.debug(query)
-            out = self._execute_query(query)
-            # logger.debug(out)
-            if out:
+            if out := self._execute_query(query):
                 triples = np.array(out)[:, :3].astype(np.int32)
                 # focusE
                 if self.data_shape > 3:
@@ -825,13 +805,12 @@ class SQLiteAdapter:
                     weights
                 else:
                     yield triples, tf.ragged.constant(participating_entities)
+            elif self.data_shape > 3:
+                yield triples, weights
             else:
-                if self.data_shape > 3:
-                    yield triples, weights
-                else:
-                    yield triples
+                yield triples
 
-    def summary(self, count=True):  # FocusE fix types
+    def summary(self, count=True):    # FocusE fix types
         """Prints summary of the database.
 
         The information that is displayed is: whether it exists, what tables
@@ -863,8 +842,8 @@ class SQLiteAdapter:
 
         """
         if os.path.exists(self.db_path):
-            print("Summary for Database {}".format(self.db_name))
-            print("Located in {}".format(self.db_path))
+            print(f"Summary for Database {self.db_name}")
+            print(f"Located in {self.db_path}")
             file_size = os.path.getsize(self.db_path)
             summary = """File size: {:.5}{}\nTables: {}"""
             tables = self._execute_query(
@@ -880,15 +859,8 @@ class SQLiteAdapter:
             types = {"integer": "int", "float": "float", "string": "str"}
             # float aggiunto per focusE
             for table_name in tables:
-                result = self._execute_query(
-                    "PRAGMA table_info('%s')" % table_name
-                )
-                cols_name_type = [
-                    "{} ({}):".format(
-                        x[1], types[x[2]] if x[2] in types else x[2]
-                    )
-                    for x in result
-                ]  # FocusE
+                result = self._execute_query(f"PRAGMA table_info('{table_name}')")
+                cols_name_type = [f"{x[1]} ({types.get(x[2], x[2])}):" for x in result]
                 length = len(cols_name_type)
                 print(
                     "-------------\n|"
@@ -902,11 +874,10 @@ class SQLiteAdapter:
                 example = ["-"] * length
                 if count:
                     nb_records = self.get_data_size(table_name[0])
-                    msg = "\n\nRecords: {}".format(nb_records)
+                    msg = f"\n\nRecords: {nb_records}"
                     if nb_records != 0:
                         record = self._execute_query(
-                            f"SELECT * FROM\
-                                {table_name[0]} LIMIT {1};"
+                            f"SELECT * FROM\\n                        #                                {table_name[0]} LIMIT 1;"
                         )[0]
                         example = [str(rec) for rec in record]
                 else:

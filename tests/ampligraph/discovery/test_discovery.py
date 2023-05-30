@@ -42,10 +42,15 @@ def test_discover_facts():
         
 def test_generate_candidates():
 
-    X = np.stack([['entity_{}'.format(np.mod(x, 15)) for x in range(50)],
-                  ['rel_{}'.format(np.mod(x, 5)) for x in range(50)],
-                  ['entity_{}'.format(np.mod(x, 20)) for x in range(50)]], axis=1)
-    
+    X = np.stack(
+        [
+            [f'entity_{np.mod(x, 15)}' for x in range(50)],
+            [f'rel_{np.mod(x, 5)}' for x in range(50)],
+            [f'entity_{np.mod(x, 20)}' for x in range(50)],
+        ],
+        axis=1,
+    )
+
     # Test
     X_candidates = generate_candidates(X, strategy='random_uniform', target_rel='rel_0',
                                        max_candidates=15, consolidate_sides=False, seed=1916)

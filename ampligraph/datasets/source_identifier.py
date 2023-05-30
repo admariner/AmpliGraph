@@ -43,13 +43,10 @@ def load_csv(data_source, chunk_size=None, sep="\t", verbose=False, **kwargs):
     data = pd.read_csv(
         data_source, sep=sep, chunksize=chunk_size, header=None, **kwargs
     )
-    logger.debug("data type: {}".format(type(data)))
+    logger.debug(f"data type: {type(data)}")
     logger.debug("CSV loaded, into iterator data.")
 
-    if isinstance(data, pd.DataFrame):
-        return data.values
-    else:
-        return data
+    return data.values if isinstance(data, pd.DataFrame) else data
 
 
 def load_json(data_source, orient="records", chunksize=None):
@@ -80,7 +77,7 @@ def load_json(data_source, orient="records", chunksize=None):
         )
     else:
         data = pd.read_json(data_source, orient=orient)
-    logger.debug("data type: {}".format(type(data)))
+    logger.debug(f"data type: {type(data)}")
     logger.debug("JSON loaded into iterator data.")
 
     return data.values
@@ -161,9 +158,7 @@ class DataSourceIdentifier:
             )
             if self.src is not None and self.src not in self.supported_types:
                 logger.debug(
-                    "File type not supported! Supported types: {}".format(
-                        ", ".join(self.supported_types)
-                    )
+                    f'File type not supported! Supported types: {", ".join(self.supported_types)}'
                 )
                 self.src = None
         else:

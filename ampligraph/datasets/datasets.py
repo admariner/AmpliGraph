@@ -77,10 +77,8 @@ def _clean_data(X, return_idx=False):
         Indices of the remaining rows of the `test` dataset (with respect to the original `test` ndarray).
 
     """
-    filtered_X = {}
     train = pd.DataFrame(X["train"][:,:3], columns=["s", "p", "o"])
-    filtered_X["train"] = X["train"]
-
+    filtered_X = {"train": X["train"]}
     valid = pd.DataFrame(X["valid"][:,:3], columns=["s", "p", "o"])
     test = pd.DataFrame(X["test"][:,:3], columns=["s", "p", "o"])
 
@@ -135,10 +133,7 @@ def _clean_data(X, return_idx=False):
         filtered_X["test-human"] = X["test-human"]
         filtered_X["test-human-ids"] = X["test-human-ids"]
 
-    if return_idx:
-        return filtered_X, valid_idx, test_idx
-    else:
-        return filtered_X
+    return (filtered_X, valid_idx, test_idx) if return_idx else filtered_X
 
 
 def _get_data_home(data_home=None):
@@ -170,7 +165,7 @@ def _get_data_home(data_home=None):
     data_home = os.path.expanduser(data_home)
     if not os.path.exists(data_home):
         os.makedirs(data_home)
-    logger.debug("data_home is set to {}".format(data_home))
+    logger.debug(f"data_home is set to {data_home}")
     return data_home
 
 
@@ -178,10 +173,8 @@ def _md5(file_path):
     md5hash = hashlib.md5()
     chunk_size = 4096
     with open(file_path, "rb") as f:
-        content_buffer = f.read(chunk_size)
-        while content_buffer:
+        while content_buffer := f.read(chunk_size):
             md5hash.update(content_buffer)
-            content_buffer = f.read(chunk_size)
     return md5hash.hexdigest()
 
 
@@ -200,7 +193,7 @@ def _unzip_dataset(remote, source, destination, check_md5hash=False):
 
     # TODO - add error checking
     with zipfile.ZipFile(source, "r") as zip_ref:
-        logger.debug("Unzipping {} to {}".format(source, destination))
+        logger.debug(f"Unzipping {source} to {destination}")
         zip_ref.extractall(destination)
     if check_md5hash:
         for file_name, remote_checksum in [
@@ -219,12 +212,7 @@ def _unzip_dataset(remote, source, destination, check_md5hash=False):
             checksum = _md5(file_path)
             if checksum != remote_checksum:
                 os.remove(source)
-                msg = (
-                    "{} has an md5 checksum of ({}) which is different from the expected ({}), "
-                    "the file may be corrupted.".format(
-                        file_path, checksum, remote_checksum
-                    )
-                )
+                msg = f"{file_path} has an md5 checksum of ({checksum}) which is different from the expected ({remote_checksum}), the file may be corrupted."
                 logger.error(msg)
                 raise IOError(msg)
     os.remove(source)
@@ -248,7 +236,7 @@ def _fetch_remote_data(remote, download_dir, data_home, check_md5hash=False):
 
     """
 
-    file_path = "{}.zip".format(download_dir)
+    file_path = f"{download_dir}.zip"
     if not Path(file_path).exists():
         urllib.request.urlretrieve(remote.url, file_path)
         # TODO - add error checking
@@ -281,7 +269,7 @@ def _fetch_dataset(remote, data_home=None, check_md5hash=False):
     dataset_dir = os.path.join(data_home, remote.dataset_name)
     if not os.path.exists(dataset_dir):
         if remote.url is None:
-            msg = "No dataset at {} and no url provided.".format(dataset_dir)
+            msg = f"No dataset at {dataset_dir} and no url provided."
             logger.error(msg)
             raise Exception(msg)
 
@@ -376,7 +364,7 @@ def load_from_csv(
 
     """
 
-    logger.debug("Loading data from {}.".format(file_name))
+    logger.debug(f"Loading data from {file_name}.")
     df = pd.read_csv(
         os.path.join(directory_path, file_name),
         sep=sep,
@@ -419,23 +407,23 @@ def _load_dataset(
         Flag which specifies whether to add reciprocal relations. For every <s, p, o> in the dataset
         this creates a corresponding triple with reciprocal relation <o, p_reciprocal, s> (default: `False`).
     """
-    dataset = {}
     if dataset_metadata.dataset_name is None:
         if dataset_metadata.url is None:
             raise ValueError(
                 "The dataset name or url must be provided to load a dataset."
             )
-        dataset_metadata.dataset_name = dataset_metadata.url[
-            dataset_metadata.url.rfind("/")
-            + 1: dataset_metadata.url.rfind(".")
-        ]
+        else:
+            dataset_metadata.dataset_name = dataset_metadata.url[
+                dataset_metadata.url.rfind("/")
+                + 1: dataset_metadata.url.rfind(".")
+            ]
     dataset_path = _fetch_dataset(dataset_metadata, data_home, check_md5hash)
     train = load_from_csv(
         dataset_path,
         dataset_metadata.train_name,
         add_reciprocal_rels=add_reciprocal_rels,
     )
-    dataset["train"] = train
+    dataset = {"train": train}
     valid = load_from_csv(
         dataset_path,
         dataset_metadata.valid_name,
@@ -520,7 +508,7 @@ def load_mapper_from_json(directory_path, file_name):
     'Dog'
     """
 
-    logger.debug("Loading mapper from {}.".format(file_name))
+    logger.debug(f"Loading mapper from {file_name}.")
     with open(os.path.join(directory_path, file_name)) as f:
         mapper = json.loads(f.read())
     return mapper
@@ -1056,15 +1044,14 @@ def load_wn11(
     dataset["valid_labels"] = valid_labels == "1"
     dataset["test_labels"] = test_labels == "1"
 
-    if clean_unseen:
-        clean_dataset, valid_idx, test_idx = _clean_data(
-            dataset, return_idx=True
-        )
-        clean_dataset["valid_labels"] = dataset["valid_labels"][valid_idx]
-        clean_dataset["test_labels"] = dataset["test_labels"][test_idx]
-        return clean_dataset
-    else:
+    if not clean_unseen:
         return dataset
+    clean_dataset, valid_idx, test_idx = _clean_data(
+        dataset, return_idx=True
+    )
+    clean_dataset["valid_labels"] = dataset["valid_labels"][valid_idx]
+    clean_dataset["test_labels"] = dataset["test_labels"][test_idx]
+    return clean_dataset
 
 
 def load_fb13(
@@ -1163,15 +1150,14 @@ def load_fb13(
     dataset["valid_labels"] = valid_labels == "1"
     dataset["test_labels"] = test_labels == "1"
 
-    if clean_unseen:
-        clean_dataset, valid_idx, test_idx = _clean_data(
-            dataset, return_idx=True
-        )
-        clean_dataset["valid_labels"] = dataset["valid_labels"][valid_idx]
-        clean_dataset["test_labels"] = dataset["test_labels"][test_idx]
-        return clean_dataset
-    else:
+    if not clean_unseen:
         return dataset
+    clean_dataset, valid_idx, test_idx = _clean_data(
+        dataset, return_idx=True
+    )
+    clean_dataset["valid_labels"] = dataset["valid_labels"][valid_idx]
+    clean_dataset["test_labels"] = dataset["test_labels"][test_idx]
+    return clean_dataset
 
 
 def load_all_datasets(check_md5hash=False):
@@ -1229,7 +1215,7 @@ def load_from_rdf(
             The actual triples of the file.
     """
 
-    logger.debug("Loading rdf data from {}.".format(file_name))
+    logger.debug(f"Loading rdf data from {file_name}.")
     data_home = _get_data_home(data_home)
     from rdflib import Graph
 
@@ -1288,7 +1274,7 @@ def load_from_ntriples(
             The actual triples of the file.
     """
 
-    logger.debug("Loading rdf ntriples from {}.".format(file_name))
+    logger.debug(f"Loading rdf ntriples from {file_name}.")
     data_home = _get_data_home(data_home)
     df = pd.read_csv(
         os.path.join(data_home, folder_name, file_name),
@@ -1876,14 +1862,14 @@ def _load_xai_fb15k_237_experiment_log(full=False, subset="all"):
     r = requests.get(url, allow_redirects=True)
     open("xai_fb15k_237.csv", "wb").write(r.content)
 
-    mapper = {
-        "all": "all",
-        "clear": 3,
-        "not clear": 0,
-        "confusing+": 2,
-        "confusing-": 1,
-    }
     if subset != "all":
+        mapper = {
+            "all": "all",
+            "clear": 3,
+            "not clear": 0,
+            "confusing+": 2,
+            "confusing-": 1,
+        }
         if subset in mapper:
             X = pd.read_csv("xai_fb15k_237.csv", sep=",")
             X = X[X["evaluated"] == mapper[subset]]
@@ -1894,64 +1880,63 @@ def _load_xai_fb15k_237_experiment_log(full=False, subset="all"):
 
     if full:
         return X
-    else:
-        t1 = X[
-            [
-                "predicate",
-                "predicate label",
-                "predicates_description",
-                "subject_triple1",
-                "subject_label_triple1",
-                "object_label_triple1",
-                "object_triple1",
-            ]
+    t1 = X[
+        [
+            "predicate",
+            "predicate label",
+            "predicates_description",
+            "subject_triple1",
+            "subject_label_triple1",
+            "object_label_triple1",
+            "object_triple1",
         ]
-        t2 = X[
-            [
-                "predicate",
-                "predicate label",
-                "predicates_description",
-                "subject_triple2",
-                "subject_label_triple2",
-                "object_label_triple2",
-                "object_triple2",
-            ]
+    ]
+    t2 = X[
+        [
+            "predicate",
+            "predicate label",
+            "predicates_description",
+            "subject_triple2",
+            "subject_label_triple2",
+            "object_label_triple2",
+            "object_triple2",
         ]
-        t3 = X[
-            [
-                "predicate",
-                "predicate label",
-                "predicates_description",
-                "subject_triple3",
-                "subject_label_triple3",
-                "object_label_triple3",
-                "object_triple3",
-            ]
+    ]
+    t3 = X[
+        [
+            "predicate",
+            "predicate label",
+            "predicates_description",
+            "subject_triple3",
+            "subject_label_triple3",
+            "object_label_triple3",
+            "object_triple3",
         ]
-        mapper1 = {
-            "subject_triple1": "subject",
-            "subject_label_triple1": "subject_label",
-            "object_label_triple1": "object_label",
-            "object_triple1": "object",
-        }
-        t1 = t1.rename(columns=mapper1)
-        mapper2 = {
-            "subject_triple2": "subject",
-            "subject_label_triple2": "subject_label",
-            "object_label_triple2": "object_label",
-            "object_triple2": "object",
-        }
-        t2 = t2.rename(columns=mapper2)
-        mapper3 = {
-            "subject_triple3": "subject",
-            "subject_label_triple3": "subject_label",
-            "object_label_triple3": "object_label",
-            "object_triple3": "object",
-        }
-        t3 = t3.rename(columns=mapper3)
-        t1 = t1.append(t2, ignore_index=True)
-        t1 = t1.append(t3, ignore_index=True)
-        return t1
+    ]
+    mapper1 = {
+        "subject_triple1": "subject",
+        "subject_label_triple1": "subject_label",
+        "object_label_triple1": "object_label",
+        "object_triple1": "object",
+    }
+    t1 = t1.rename(columns=mapper1)
+    mapper2 = {
+        "subject_triple2": "subject",
+        "subject_label_triple2": "subject_label",
+        "object_label_triple2": "object_label",
+        "object_triple2": "object",
+    }
+    t2 = t2.rename(columns=mapper2)
+    mapper3 = {
+        "subject_triple3": "subject",
+        "subject_label_triple3": "subject_label",
+        "object_label_triple3": "object_label",
+        "object_triple3": "object",
+    }
+    t3 = t3.rename(columns=mapper3)
+    t1 = t1.append(t2, ignore_index=True)
+    t1 = t1.append(t3, ignore_index=True)
+    return t1
 
 
 def load_codex(
