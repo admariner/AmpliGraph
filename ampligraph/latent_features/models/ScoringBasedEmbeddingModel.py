@@ -389,10 +389,7 @@ class ScoringBasedEmbeddingModel(tf.keras.Model):
         """
         if self.data_shape > 3:
             triples = data[0]
-            if self.data_handler._adapter.use_filter:
-                weights = data[2]
-            else:
-                weights = data[1]
+            weights = data[2] if self.data_handler._adapter.use_filter else data[1]
         else:
             triples = data
         with tf.GradientTape() as tape:
@@ -427,9 +424,7 @@ class ScoringBasedEmbeddingModel(tf.keras.Model):
                 tape,
             )
         except ValueError as e:
-            if self.scoring_layer.name == "Random":
-                pass
-            else:
+            if self.scoring_layer.name != "Random":
                 raise e
 
         return {m.name: m.result() for m in self.metrics}
@@ -765,28 +760,25 @@ class ScoringBasedEmbeddingModel(tf.keras.Model):
             # FocusE
             if self.data_shape < 4:
                 self.use_focusE = False
+            elif self.use_focusE:
+                assert isinstance(
+                    focusE_params, dict
+                ), "focusE parameters need to be in a dict!"
+                # Define FocusE params
+                (
+                    non_linearity,
+                    stop_epoch,
+                    structure_weight,
+                ) = self.get_focusE_params(focusE_params)
+                self.focusE_params = {
+                    "non_linearity": non_linearity,
+                    "stop_epoch": stop_epoch,
+                    "structural_wt": structure_weight,
+                }
             else:
-                if self.use_focusE:
-                    assert isinstance(
-                        focusE_params, dict
-                    ), "focusE parameters need to be in a dict!"
-                    # Define FocusE params
-                    (
-                        non_linearity,
-                        stop_epoch,
-                        structure_weight,
-                    ) = self.get_focusE_params(focusE_params)
-                    self.focusE_params = {
-                        "non_linearity": non_linearity,
-                        "stop_epoch": stop_epoch,
-                        "structural_wt": structure_weight,
-                    }
-                else:
-                    print(
-                        "Data shape is {}: not only triples were given, but focusE is not active!".format(
-                            self.data_shape
-                        )
-                    )
+                print(
+                    f"Data shape is {self.data_shape}: not only triples were given, but focusE is not active!"
+                )
 
             # Container that configures and calls `tf.keras.Callback`s.
             if not isinstance(callbacks, callbacks_module.CallbackList):
@@ -1025,9 +1017,7 @@ class ScoringBasedEmbeddingModel(tf.keras.Model):
             base_dir = filedir
             filepath = os.path.basename(filedir)
 
-        with open(
-            os.path.join(base_dir, filepath + "_metadata.ampkl"), "wb"
-        ) as f:
+        with open(os.path.join(base_dir, f"{filepath}_metadata.ampkl"), "wb") as f:
             metadata = {
                 "is_partitioned_training": self.is_partitioned_training,
                 "max_ent_size": self.max_ent_size,
@@ -1039,7 +1029,7 @@ class ScoringBasedEmbeddingModel(tf.keras.Model):
                 "is_backward": self.is_backward,
             }
 
-            metadata.update(self.data_indexer.get_update_metadata(base_dir))
+            metadata |= self.data_indexer.get_update_metadata(base_dir)
             if self.is_partitioned_training:
                 self.partitioner_metadata = (
                     self.data_handler.get_update_partitioner_metadata(base_dir)
@@ -1094,7 +1084,7 @@ class ScoringBasedEmbeddingModel(tf.keras.Model):
         if filedir is not None:
             filepath = os.path.join(filedir, os.path.basename(filedir))
 
-        with open(filepath + "_metadata.ampkl", "rb") as f:
+        with open(f"{filepath}_metadata.ampkl", "rb") as f:
             metadata = pickle.load(f)
             metadata["root_directory"] = os.path.dirname(filepath)
             metadata["root_directory"] = (
@@ -1116,14 +1106,10 @@ class ScoringBasedEmbeddingModel(tf.keras.Model):
             self.is_backward = metadata.get("is_backward", False)
             if self.is_partitioned_training:
                 self.partitioner_k = metadata["partitioner_k"]
-                self.partitioner_metadata = {}
-                self.partitioner_metadata["ent_map_fname"] = metadata[
-                    "ent_map_fname"
-                ]
-                self.partitioner_metadata["rel_map_fname"] = metadata[
-                    "rel_map_fname"
-                ]
-
+                self.partitioner_metadata = {
+                    "ent_map_fname": metadata["ent_map_fname"],
+                    "rel_map_fname": metadata["rel_map_fname"],
+                }
             self.is_calibrated = metadata["is_calibrated"]
             if self.is_calibrated:
                 self.calibration_layer = CalibrationLayer(
@@ -1495,30 +1481,28 @@ class ScoringBasedEmbeddingModel(tf.keras.Model):
             In case of partitioning, it returns the triple embeddings as a list of size 3, where each element
             is a np.array of subjects, predicates and objects embeddings.
         """
-        if self.is_partitioned_training:
-            np_triples = triples.numpy()
-            sub_emb_out = []
-            obj_emb_out = []
-            rel_emb_out = []
-            with shelve.open(
-                self.partitioner_metadata["ent_map_fname"]
-            ) as ent_emb:
-                with shelve.open(
-                    self.partitioner_metadata["rel_map_fname"]
-                ) as rel_emb:
-                    for triple in np_triples:
-                        sub_emb_out.append(ent_emb[str(triple[0])])
-                        rel_emb_out.append(rel_emb[str(triple[1])])
-                        obj_emb_out.append(ent_emb[str(triple[2])])
-
-            emb_out = [
-                np.array(sub_emb_out),
-                np.array(rel_emb_out),
-                np.array(obj_emb_out),
-            ]
-            return emb_out
-        else:
+        if not self.is_partitioned_training:
             return triples
+        np_triples = triples.numpy()
+        sub_emb_out = []
+        obj_emb_out = []
+        rel_emb_out = []
+        with shelve.open(
+            self.partitioner_metadata["ent_map_fname"]
+        ) as ent_emb:
+            with shelve.open(
+                self.partitioner_metadata["rel_map_fname"]
+            ) as rel_emb:
+                for triple in np_triples:
+                    sub_emb_out.append(ent_emb[str(triple[0])])
+                    rel_emb_out.append(rel_emb[str(triple[1])])
+                    obj_emb_out.append(ent_emb[str(triple[2])])
+
+        return [
+            np.array(sub_emb_out),
+            np.array(rel_emb_out),
+            np.array(obj_emb_out),
+        ]
 
     def evaluate(
         self,
@@ -1697,13 +1681,11 @@ class ScoringBasedEmbeddingModel(tf.keras.Model):
         """Returns the output of predict step on a batch of data."""
         if self.data_shape > 3 and isinstance(inputs, tuple):
             inputs = inputs[0]
-        score_pos = self(inputs, False)
-        return score_pos
+        return self(inputs, False)
 
     def predict_step_partitioning(self, inputs):
         """Returns the output of predict step on a batch of data."""
-        score_pos = self.scoring_layer(inputs)
-        return score_pos
+        return self.scoring_layer(inputs)
 
     def make_predict_function(self):
         """Similar to keras lib, this function returns the handle to the predict step function.
@@ -2058,7 +2040,7 @@ class ScoringBasedEmbeddingModel(tf.keras.Model):
                 _, neg_handle = next(negative_iterator)
 
             with data_handler_calibrate_pos.catch_stop_iteration():
-                for step in data_handler_calibrate_pos.steps():
+                for _ in data_handler_calibrate_pos.steps():
                     if self.is_calibrate_with_corruption:
                         scores_pos, scores_neg = calibrate_function(iterator)
 
@@ -2213,30 +2195,26 @@ class ScoringBasedEmbeddingModel(tf.keras.Model):
 
         if embedding_type == "e":
             lookup_concept = self.data_indexer.get_indexes(entities, "e")
-            if self.is_partitioned_training:
-                emb_out = []
-                with shelve.open(
-                    self.partitioner_metadata["ent_map_fname"]
-                ) as ent_emb:
-                    for ent_id in lookup_concept:
-                        emb_out.append(ent_emb[str(ent_id)])
-            else:
+            if not self.is_partitioned_training:
                 return tf.nn.embedding_lookup(
                     self.encoding_layer.ent_emb, lookup_concept
                 ).numpy()
+            emb_out = []
+            with shelve.open(
+                            self.partitioner_metadata["ent_map_fname"]
+                        ) as ent_emb:
+                emb_out.extend(ent_emb[str(ent_id)] for ent_id in lookup_concept)
         elif embedding_type == "r":
             lookup_concept = self.data_indexer.get_indexes(entities, "r")
-            if self.is_partitioned_training:
-                emb_out = []
-                with shelve.open(
-                    self.partitioner_metadata["rel_map_fname"]
-                ) as rel_emb:
-                    for rel_id in lookup_concept:
-                        emb_out.append(rel_emb[str(rel_id)])
-            else:
+            if not self.is_partitioned_training:
                 return tf.nn.embedding_lookup(
                     self.encoding_layer.rel_emb, lookup_concept
                 ).numpy()
+            emb_out = []
+            with shelve.open(
+                            self.partitioner_metadata["rel_map_fname"]
+                        ) as rel_emb:
+                emb_out.extend(rel_emb[str(rel_id)] for rel_id in lookup_concept)
         else:
-            msg = "Invalid entity type: {}".format(embedding_type)
+            msg = f"Invalid entity type: {embedding_type}"
             raise ValueError(msg)

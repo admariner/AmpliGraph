@@ -89,9 +89,4 @@ class CorruptionGenerationLayerTrain(tf.keras.layers.Layer):
             tf.math.multiply(keep_obj_mask, dataset[:, 2]),
             tf.math.multiply(keep_subj_mask, replacements),
         )
-        # stack the generated subject, reln and object entities and create the
-        # corruptions
-        corruptions = tf.transpose(
-            a=tf.stack([subjects, relationships, objects])
-        )
-        return corruptions
+        return tf.transpose(a=tf.stack([subjects, relationships, objects]))

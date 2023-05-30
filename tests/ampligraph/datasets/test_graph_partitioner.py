@@ -120,14 +120,12 @@ class dummyGraphGenerator():
         edges_labels = self.get_unique(self.n_unique_edges, self.edges)
         graph = self.generate_graph(nodes, edges_labels, seed=seed)
         size = len(graph)
-        
-        X = {
-            'train': graph[:int(0.7 * size)],
-            'valid': graph[int(0.7 * size):int(0.8 * size)],
-            'test':  graph[int(0.8 * size):],
-        }
 
-        return X
+        return {
+            'train': graph[: int(0.7 * size)],
+            'valid': graph[int(0.7 * size) : int(0.8 * size)],
+            'test': graph[int(0.8 * size) :],
+        }
 
 
 def metaclass_instantiator(metaclass):
@@ -183,18 +181,22 @@ def edge_graph_partitioner(request, data, k):
 
 def test_get_number_of_partitions():
     n = get_number_of_partitions(3)
-    assert n == 6, "Number of partitions should be 6, instead got {}.".format(n)
+    assert n == 6, f"Number of partitions should be 6, instead got {n}."
 
 
 def test_number_of_partitions_after_graph_partitioning(graph_partitioner):
-   n_parts = len(graph_partitioner[0].partitions)
-   # BucketGraph return k*(k+1)/2 partitions
-   # RandomVertices will return k or less than k partitions depending on the vertex splits.
-   if graph_partitioner[0].__class__.__name__ in ['BucketGraphPartitioner', 'RandomVerticesGraphPartitioner']:
-       expected = get_number_of_partitions(graph_partitioner[1])
-       assert n_parts <= expected, "{}: Requested number of partitions based on buckets should be greater or equal to the actual, expected max of {} got {}".format(graph_partitioner[0].__class__.__name__, expected, n_parts)
-   else:
-       assert n_parts == graph_partitioner[1], "{}: Requested number of partitions not equal to the actual should be {} got {}".format(graph_partitioner[0].__class__.__name__, graph_partitioner[1], n_parts)
+    n_parts = len(graph_partitioner[0].partitions)
+       # BucketGraph return k*(k+1)/2 partitions
+       # RandomVertices will return k or less than k partitions depending on the vertex splits.
+    if graph_partitioner[0].__class__.__name__ in ['BucketGraphPartitioner', 'RandomVerticesGraphPartitioner']:
+        expected = get_number_of_partitions(graph_partitioner[1])
+        assert (
+            n_parts <= expected
+        ), f"{graph_partitioner[0].__class__.__name__}: Requested number of partitions based on buckets should be greater or equal to the actual, expected max of {expected} got {n_parts}"
+    else:
+        assert (
+            n_parts == graph_partitioner[1]
+        ), f"{graph_partitioner[0].__class__.__name__}: Requested number of partitions not equal to the actual should be {graph_partitioner[1]} got {n_parts}"
 
 
 # def test_random_vertices_graph_partitioner(data, k):
@@ -219,5 +221,7 @@ def test_partition_size_in_edge_based_graph_partitioner(edge_graph_partitioner):
     allowable_sizes =  [x for y in [(expected_size - i, expected_size + i) for i in range(k)] for x in y]
     for partition in partitioner:
         actual = partition.get_data_size()
-        assert(actual in allowable_sizes), "Partition size is not allowed, expected {} +- (0,{}), actual {}.".format(expected_size, k, actual)
+        assert (
+            actual in allowable_sizes
+        ), f"Partition size is not allowed, expected {expected_size} +- (0,{k}), actual {actual}."
 

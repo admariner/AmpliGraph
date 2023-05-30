@@ -31,7 +31,7 @@ def sqlite_adapter(request):
 def test_sqlite_adapter_get_batch_generator(sqlite_adapter):
     batch_gen = sqlite_adapter._get_batch_generator()
     batch = next(batch_gen)
-    assert np.shape(batch) == (1,3), "batch size is wrong, got {}".format(batch)
+    assert np.shape(batch) == (1,3), f"batch size is wrong, got {batch}"
 
 
 def test_sqlite_adapter_get_data_size(sqlite_adapter):

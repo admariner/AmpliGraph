@@ -115,16 +115,16 @@ class PartitionDataManager(abc.ABC):
                 self.root_directory = tempfile.gettempdir()
             self.timestamp = datetime.now().strftime("%d-%m-%Y_%I-%M-%S_%f_%p")
             self.ent_map_fname = os.path.join(
-                self.root_directory, "ent_partition_{}".format(self.timestamp)
+                self.root_directory, f"ent_partition_{self.timestamp}"
             )
             self.ent_meta_fname = os.path.join(
-                self.root_directory, "ent_metadata_{}".format(self.timestamp)
+                self.root_directory, f"ent_metadata_{self.timestamp}"
             )
             self.rel_map_fname = os.path.join(
-                self.root_directory, "rel_partition_{}".format(self.timestamp)
+                self.root_directory, f"rel_partition_{self.timestamp}"
             )
             self.rel_meta_fname = os.path.join(
-                self.root_directory, "rel_metadata_{}".format(self.timestamp)
+                self.root_directory, f"rel_metadata_{self.timestamp}"
             )
 
         if isinstance(dataset_loader, AbstractGraphPartitioner):
@@ -154,7 +154,7 @@ class PartitionDataManager(abc.ABC):
         self._generate_partition_params()
 
     def _copy_files(self, base):
-        for file in glob.glob(base + "*"):
+        for file in glob.glob(f"{base}*"):
             shutil.copy(file, self.root_directory)
 
     def get_update_metadata(self, filepath):
@@ -170,21 +170,21 @@ class PartitionDataManager(abc.ABC):
             self._copy_files(self.rel_map_fname)
             self._copy_files(self.rel_meta_fname)
             self.ent_map_fname = os.path.join(
-                self.root_directory, "ent_partition_{}".format(self.timestamp)
+                self.root_directory, f"ent_partition_{self.timestamp}"
             )
             self.ent_meta_fname = os.path.join(
-                self.root_directory, "ent_metadata_{}".format(self.timestamp)
+                self.root_directory, f"ent_metadata_{self.timestamp}"
             )
             self.rel_map_fname = os.path.join(
-                self.root_directory, "rel_partition_{}".format(self.timestamp)
+                self.root_directory, f"rel_partition_{self.timestamp}"
             )
             self.rel_meta_fname = os.path.join(
-                self.root_directory, "rel_metadata_{}".format(self.timestamp)
+                self.root_directory, f"rel_metadata_{self.timestamp}"
             )
         except shutil.SameFileError:
             pass
 
-        metadata = {
+        return {
             "root_directory": self.root_directory,
             "partitioner_k": self.partitioner_k,
             "ent_map_fname": self.ent_map_fname,
@@ -192,7 +192,6 @@ class PartitionDataManager(abc.ABC):
             "rel_map_fname": self.rel_map_fname,
             "rel_meta_fname": self.rel_meta_fname,
         }
-        return metadata
 
     @property
     def max_entities(self):
@@ -249,10 +248,7 @@ class PartitionDataManager(abc.ABC):
             self._change_partition(partition_data, i)
             try:
                 while True:
-                    # generate data from the current partition
-                    batch_data_from_current_partition = next(partition_data)
-                    yield batch_data_from_current_partition
-
+                    yield next(partition_data)
             except StopIteration:
                 # No more data in current partition (parsed fully once), so the partition is trained
                 # Hence persist the params related to the current partition.
@@ -675,18 +671,12 @@ class BucketPartitionDataManager(PartitionDataManager):
                 ) as bucket:
                     all_keys_merged_buckets.extend(bucket["indexes"])
 
-            # since we would be concatenating the bucket embeddings, let's find what 0, 1, 2 etc indices of
-            # embedding matrix means.
-            # bucket entity value to ent_emb matrix index mappings eg: 2001 ->
-            # 0, 2002->1, 2003->2, ...
-            merged_bucket_to_ent_mat_mappings = {}
-            for key, val in zip(
-                all_keys_merged_buckets,
-                np.arange(0, len(all_keys_merged_buckets)),
-            ):
-                merged_bucket_to_ent_mat_mappings[key] = val
-            emb_mat_order = []
-
+            merged_bucket_to_ent_mat_mappings = dict(
+                zip(
+                    all_keys_merged_buckets,
+                    np.arange(0, len(all_keys_merged_buckets)),
+                )
+            )
             # partitions do not contain all entities of the bucket they belong to.
             # they will produce data from 0->n idx. So we need to remap the get position of the
             # entities of the partition in the concatenated emb matrix
@@ -702,17 +692,14 @@ class BucketPartitionDataManager(PartitionDataManager):
             ].backend.mapper.get_indexes(
                 sorted_partition_keys, type_of="e", order="ind2raw"
             )
-            for val in sorted_partition_values:
-                # a->b->c mapping
-                emb_mat_order.append(
-                    merged_bucket_to_ent_mat_mappings[int(val)]
-                )
-
+            emb_mat_order = [
+                merged_bucket_to_ent_mat_mappings[int(val)]
+                for val in sorted_partition_values
+            ]
             # store it
             with shelve.open(self.ent_meta_fname, writeback=True) as metadata:
                 metadata[str(i)] = emb_mat_order
 
-            rel_mat_order = []
             # with
             # shelve.open(self.partitioner.partitions[i].backend.mapper.metadata['relations'])
             # as rel_sh:
@@ -725,11 +712,7 @@ class BucketPartitionDataManager(PartitionDataManager):
             ].backend.mapper.get_indexes(
                 sorted_partition_keys, type_of="r", order="ind2raw"
             )
-            # a : 0 to n
-            for val in sorted_partition_values:
-                # a->b mapping
-                rel_mat_order.append(int(val))
-
+            rel_mat_order = [int(val) for val in sorted_partition_values]
             with shelve.open(self.rel_meta_fname, writeback=True) as metadata:
                 metadata[str(i)] = rel_mat_order
 
@@ -972,9 +955,7 @@ def get_partition_adapter(
         Graph partitioning strategy.
     """
     if isinstance(dataset_loader, AbstractGraphPartitioner):
-        partitioner_manager = PARTITION_MANAGER_REGISTRY.get(
-            dataset_loader.manager
-        )(
+        return PARTITION_MANAGER_REGISTRY.get(dataset_loader.manager)(
             dataset_loader,
             model,
             dataset_loader.name,
@@ -982,12 +963,9 @@ def get_partition_adapter(
             root_directory,
         )
 
-    else:
-        partitioner = PARTITION_ALGO_REGISTRY.get(strategy)(
-            dataset_loader, k=partitioning_k
-        )
-        partitioner_manager = PARTITION_MANAGER_REGISTRY.get(
-            partitioner.manager
-        )(partitioner, model, strategy, partitioning_k, root_directory)
-
-    return partitioner_manager
+    partitioner = PARTITION_ALGO_REGISTRY.get(strategy)(
+        dataset_loader, k=partitioning_k
+    )
+    return PARTITION_MANAGER_REGISTRY.get(partitioner.manager)(
+        partitioner, model, strategy, partitioning_k, root_directory
+    )

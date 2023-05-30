@@ -117,9 +117,7 @@ class NoBackend:
         dataset_type: str
              Kind of data to be loaded (`"train"` | `"test"` | `"validation"`).
         """
-        logger.debug(
-            "Simple in-memory data loading of {} dataset.".format(dataset_type)
-        )
+        logger.debug(f"Simple in-memory data loading of {dataset_type} dataset.")
         self.data_source = data_source
         self.dataset_type = dataset_type
         if isinstance(self.data_source, np.ndarray):
@@ -129,7 +127,6 @@ class NoBackend:
                     backend="in_memory" if self.in_memory else "sqlite",
                     root_directory=self.root_directory,
                 )
-                self.data = self.mapper.get_indexes(self.data_source)
             elif self.remap:
                 # create a special mapping for partitions, persistent mapping from main indexes
                 # to partition indexes
@@ -139,10 +136,9 @@ class NoBackend:
                     name=self.name,
                     root_directory=self.root_directory,
                 )
-                self.data = self.mapper.get_indexes(self.data_source)
             else:
                 self.mapper = self.use_indexer
-                self.data = self.mapper.get_indexes(self.data_source)
+            self.data = self.mapper.get_indexes(self.data_source)
         else:
             loader = self.identifier.fetch_loader()
             raw_data = loader(self.data_source)
@@ -195,7 +191,7 @@ class NoBackend:
             ]
         elif objects is None:
             triples = self.data[np.isin(self.data[:, 0], subjects)]
-        elif subjects is None:
+        else:
             triples = self.data[np.isin(self.data[:, 2], objects)]
         triples = np.append(
             triples,
@@ -246,7 +242,7 @@ class NoBackend:
             #                    triples_original_index = np.array([(ents[str(xx[0])], rels[str(xx[1])],
             # ents[str(xx[2])]) for xx in triples], dtype=np.int32)
             logger.debug("Query parent for data.")
-            logger.debug("Original index: {}".format(triples_original_index))
+            logger.debug(f"Original index: {triples_original_index}")
             subjects = self.parent.get_complementary_subjects(
                 triples_original_index, use_filter=use_filter
             )
@@ -449,7 +445,7 @@ class NoBackend:
             [("", dataloader.backend.data.dtype)]
             * dataloader.backend.data.shape[1]
         )
-        intersection = (
+        return (
             np.intersect1d(av, bv)
             .view(self.data.dtype)
             .reshape(
@@ -457,7 +453,6 @@ class NoBackend:
                 self.data.shape[0 if self.data.flags["F_CONTIGUOUS"] else 1],
             )
         )
-        return intersection
 
     def _get_batch_generator(
         self, batch_size, dataset_type="train", random=False, index_by=""
@@ -506,13 +501,12 @@ class NoBackend:
                 else:
                     yield out, weights
 
+            elif self.use_filter:
+                yield out, tf.ragged.constant(
+                    participating_entities, dtype=tf.int32
+                )
             else:
-                if self.use_filter:
-                    yield out, tf.ragged.constant(
-                        participating_entities, dtype=tf.int32
-                    )
-                else:
-                    yield out
+                yield out
 
     def _clean(self):
         del self.data
@@ -643,16 +637,15 @@ class GraphDataLoader:
         self.parent = parent
         if use_filter is None or use_filter is True:
             self.use_filter = {"train": data_source}
+        elif isinstance(use_filter, dict) or use_filter is False:
+            self.use_filter = use_filter
         else:
-            if isinstance(use_filter, dict) or use_filter is False:
-                self.use_filter = use_filter
-            else:
-                msg = "use_filter should be a dictionary with keys as names of filters and \
+            msg = "use_filter should be a dictionary with keys as names of filters and \
                 values as data sources, instead got {}".format(
-                    use_filter
-                )
-                logger.error(msg)
-                raise Exception(msg)
+                use_filter
+            )
+            logger.error(msg)
+            raise Exception(msg)
         if bool(use_indexer) != (not remap):
             msg = (
                 "Either remap or Indexer should be specified at the same time."
@@ -661,10 +654,7 @@ class GraphDataLoader:
             raise Exception(msg)
         if isinstance(backend, type) and backend != NoBackend:
             self.backend = backend(
-                "database_{}_{}.db".format(
-                    datetime.now().strftime("%d-%m-%Y_%I-%M-%S_%f_%p"),
-                    str(uuid.uuid4()),
-                ),
+                f'database_{datetime.now().strftime("%d-%m-%Y_%I-%M-%S_%f_%p")}_{str(uuid.uuid4())}.db',
                 identifier=self.identifier,
                 root_directory=self.root_directory,
                 use_indexer=self.use_indexer,
@@ -675,11 +665,7 @@ class GraphDataLoader:
                 verbose=verbose,
                 use_filter=self.use_filter,
             )
-            logger.debug(
-                "Initialized Backend with database at: {}".format(
-                    self.backend.db_path
-                )
-            )
+            logger.debug(f"Initialized Backend with database at: {self.backend.db_path}")
 
         elif backend is None or backend == NoBackend:
             self.backend = NoBackend(

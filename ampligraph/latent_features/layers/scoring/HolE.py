@@ -22,8 +22,7 @@ class HolE(ComplEx):
     """
 
     def get_config(self):
-        config = super(HolE, self).get_config()
-        return config
+        return super(HolE, self).get_config()
 
     def __init__(self, k):
         super(HolE, self).__init__(k)

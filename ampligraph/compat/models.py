@@ -325,9 +325,7 @@ class ScoringModelBase:
 
         if len(early_stopping_params) != 0:
             checkpoint = tf.keras.callbacks.EarlyStopping(
-                monitor="val_{}".format(
-                    early_stopping_params.get("criteria", "mrr")
-                ),
+                monitor=f'val_{early_stopping_params.get("criteria", "mrr")}',
                 min_delta=0,
                 patience=early_stopping_params.get("stop_interval", 10),
                 verbose=self.verbose,
@@ -338,13 +336,11 @@ class ScoringModelBase:
 
         x_filter = early_stopping_params.get("x_filter", None)
 
-        if isinstance(x_filter, np.ndarray) or isinstance(x_filter, list):
+        if isinstance(x_filter, (np.ndarray, list)):
             x_filter = {"test": x_filter}
         elif x_filter is None or not x_filter:
             x_filter = False
-        elif isinstance(x_filter, dict):
-            pass
-        else:
+        elif not isinstance(x_filter, dict):
             raise ValueError("Incorrect type for x_filter")
 
         focusE = False
@@ -433,9 +429,9 @@ class ScoringModelBase:
         count: int
             Count of the entities or relations.
         """
-        if concept_type == "entity" or concept_type == "e":
+        if concept_type in ["entity", "e"]:
             return self.model.get_count("e")
-        elif concept_type == "relation" or concept_type == "r":
+        elif concept_type in ["relation", "r"]:
             return self.model.get_count("r")
         else:
             raise ValueError("Invalid value for concept_type!")
@@ -465,9 +461,9 @@ class ScoringModelBase:
         embeddings : ndarray, shape [n, k]
             An array of k-dimensional embeddings.
         """
-        if embedding_type == "entity" or embedding_type == "e":
+        if embedding_type in ["entity", "e"]:
             return self.model.get_embeddings(entities, "e")
-        elif embedding_type == "relation" or embedding_type == "r":
+        elif embedding_type in ["relation", "r"]:
             return self.model.get_embeddings(entities, "r")
         else:
             raise ValueError("Invalid value for embedding_type!")

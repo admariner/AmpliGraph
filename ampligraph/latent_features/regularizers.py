@@ -52,17 +52,18 @@ def get(identifier, hyperparams={}):
         Regularizer instance of the `tf.keras.regularizer` class.
 
     """
-    if isinstance(identifier, str) and identifier == "l3":
-        hyperparams["p"] = 3
-        identifier = partial(
-            LP_regularizer, regularizer_parameters=hyperparams
-        )
-        identifier = tf.keras.regularizers.get(identifier)
-        identifier.__name__ = "LP"
-    elif isinstance(identifier, str) and identifier == "LP":
-        identifier = partial(
-            LP_regularizer, regularizer_parameters=hyperparams
-        )
-        identifier = tf.keras.regularizers.get(identifier)
-        identifier.__name__ = "LP"
+    if isinstance(identifier, str):
+        if identifier == "l3":
+            hyperparams["p"] = 3
+            identifier = partial(
+                LP_regularizer, regularizer_parameters=hyperparams
+            )
+            identifier = tf.keras.regularizers.get(identifier)
+            identifier.__name__ = "LP"
+        elif identifier == "LP":
+            identifier = partial(
+                LP_regularizer, regularizer_parameters=hyperparams
+            )
+            identifier = tf.keras.regularizers.get(identifier)
+            identifier.__name__ = "LP"
     return identifier

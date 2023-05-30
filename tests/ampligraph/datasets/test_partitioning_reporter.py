@@ -93,42 +93,53 @@ def partitioning(data_1, data_2, k, mocker):
 def reporter(partitioning):
     logs = {}
     partitionings = {"one":(partitioning, logs)}
-    reporter = PartitioningReporter(partitionings=partitionings)
-    yield reporter
+    yield PartitioningReporter(partitionings=partitionings)
 
 
 def test_get_edge_cut(reporter, partitioning):
-    partitioning, args = partitioning 
+    partitioning, args = partitioning
     edge_cut, edge_cut_proportion = reporter.get_edge_cut(args['k'], partitioning, args['avg_size'])
-    assert edge_cut == 9, "Edge cut should be 9, instead got {} {}.".format(edge_cut, args)
+    assert edge_cut == 9, f"Edge cut should be 9, instead got {edge_cut} {args}."
 
 
 def test_get_edge_imbalance(reporter, partitioning):
-    partitioning, args = partitioning 
+    partitioning, args = partitioning
     edge_imb = reporter.get_edge_imbalance(args['avg_size'], args['max_size'])
-    assert edge_imb == 0, "Edge imbalance shuld be 0 got {}".format(edge_imb)
+    assert edge_imb == 0, f"Edge imbalance shuld be 0 got {edge_imb}"
 
 
 def test_get_vertex_imbalance_and_count(reporter, partitioning):
-    partitioning, args = partitioning 
+    partitioning, args = partitioning
     vertex_imb, vertex_cnt = reporter.get_vertex_imbalance_and_count(partitioning, vertex_count=True)
-    assert vertex_imb == 0, "Vertex imbalance should be 0, instead got {}.".format(vertex_imb)
-    assert vertex_cnt == [10, 10], "Vertex count is {}, expected [10, 10]".format(vertex_cnt)
+    assert (
+        vertex_imb == 0
+    ), f"Vertex imbalance should be 0, instead got {vertex_imb}."
+    assert vertex_cnt == [
+        10,
+        10,
+    ], f"Vertex count is {vertex_cnt}, expected [10, 10]"
 
 
 def test_get_average_deviation_from_ideal_size_vertices(reporter, partitioning):
-    partitioning, args = partitioning 
+    partitioning, args = partitioning
     dev_vertices = reporter.get_average_deviation_from_ideal_size_vertices(partitioning)
-    assert dev_vertices == 100, "Avg deviation from ideal size for vertices should be 100, instead got {}.".format(dev_vertices)
+    assert (
+        dev_vertices == 100
+    ), f"Avg deviation from ideal size for vertices should be 100, instead got {dev_vertices}."
 
 
 def test_get_average_deviation_from_ideal_size_edges(reporter, partitioning):
-    partitioning, args = partitioning 
+    partitioning, args = partitioning
     dev_edges = reporter.get_average_deviation_from_ideal_size_edges(partitioning)
-    assert dev_edges == 0, "Avg deviation from ideal size for edges should be 0, instead got {}.".format(dev_edges)
+    assert (
+        dev_edges == 0
+    ), f"Avg deviation from ideal size for edges should be 0, instead got {dev_edges}."
 
 
 def test_get_edges_count(reporter, partitioning):
-    partitioning, args = partitioning 
+    partitioning, args = partitioning
     edges_cnt = reporter.get_edges_count(partitioning)
-    assert edges_cnt == [9, 9], "Edges counts should be [9, 9] instead got {}.".format(edges_cnt)
+    assert edges_cnt == [
+        9,
+        9,
+    ], f"Edges counts should be [9, 9] instead got {edges_cnt}."

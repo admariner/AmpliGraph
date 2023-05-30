@@ -20,8 +20,7 @@ def get_memory_size():
     """
     snapshot = tracemalloc.take_snapshot()
     stats = snapshot.statistics("lineno", cumulative=True)
-    total = sum(stat.size for stat in stats)
-    return total
+    return sum(stat.size for stat in stats)
 
 
 def get_human_readable_size(size_in_bytes):

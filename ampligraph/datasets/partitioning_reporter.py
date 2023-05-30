@@ -69,22 +69,19 @@ class PartitioningReporter:
         intersections = []
         logger.debug(partitions)
         for partition1 in partitions:
-            logger.debug("Partition 1: {}".format(partition1))
+            logger.debug(f"Partition 1: {partition1}")
             intersect = []
             for partition2 in partitions:
                 if partition1 == partition2:
                     continue
                 inter = partition1.intersect(partition2)
-                logger.debug("Intersections: {}".format(inter))
+                logger.debug(f"Intersections: {inter}")
                 intersect.append(len(inter))
-                logger.debug("Partition 2: {}".format(partition2))
+                logger.debug(f"Partition 2: {partition2}")
             intersections.append(np.mean(intersect))
-        logger.debug("Intersections: {}".format(intersections))
+        logger.debug(f"Intersections: {intersections}")
         edge_cut = np.mean(intersections)
-        edge_cut_proportion = None
-        if avg_size:
-            # edge cut with respect to the average partition size
-            edge_cut_proportion = (edge_cut * 100) / avg_size
+        edge_cut_proportion = (edge_cut * 100) / avg_size if avg_size else None
         return edge_cut, edge_cut_proportion
 
     def get_edge_imbalance(self, avg_size, max_size):
@@ -103,8 +100,7 @@ class PartitioningReporter:
             Edge imbalance
         """
 
-        edge_imb = max_size / avg_size - 1
-        return edge_imb
+        return max_size / avg_size - 1
 
     def get_vertex_imbalance_and_count(self, partitions, vertex_count=False):
         """Calculates vertex imbalance of partitions, vertex count - counts number
@@ -130,10 +126,7 @@ class PartitioningReporter:
             lengths.append(ents_len)
 
         vertex_imb = np.max(lengths) / np.mean(lengths) - 1
-        if vertex_count:
-            return vertex_imb, lengths
-        else:
-            return vertex_imb
+        return (vertex_imb, lengths) if vertex_count else vertex_imb
 
     def get_average_deviation_from_ideal_size_vertices(self, partitions):
         """Metric that calculates the average difference between the
@@ -158,11 +151,10 @@ class PartitioningReporter:
             sizes.append(ents_len)
         data_size = ents_len
         ideal_size = data_size / k
-        percentage_dev = (
+        return (
             (np.sum([np.abs(ideal_size - size) for size in sizes]) / k)
             / ideal_size
         ) * 100
-        return percentage_dev
 
     def get_average_deviation_from_ideal_size_edges(self, partitions):
         """Metric that calculates the average difference between the
@@ -185,16 +177,15 @@ class PartitioningReporter:
         sizes = []
         for partition in partitions:
             sizes.append(partition.get_data_size())
-        logger.debug("Parent: {}".format(partition.parent.backend.data))
+        logger.debug(f"Parent: {partition.parent.backend.data}")
         data_size = partition.parent.get_data_size()
-        logger.debug("Parent data size: {}".format(data_size))
+        logger.debug(f"Parent data size: {data_size}")
         ideal_size = data_size / k
-        logger.debug("Ideal data size: {}".format(ideal_size))
-        percentage_dev = (
+        logger.debug(f"Ideal data size: {ideal_size}")
+        return (
             (np.sum([np.abs(ideal_size - size) for size in sizes]) / k)
             / ideal_size
         ) * 100
-        return percentage_dev
 
     def get_edges_count(self, partitions):
         """Counts number of edges in each partition that estimates the size of partition.
@@ -283,7 +274,7 @@ class PartitioningReporter:
 
     def report(
         self, visualize=True, barh=True
-    ):  # TODO: include plotting parameters
+    ):    # TODO: include plotting parameters
         """Collect individual reports for every partitioning.
 
         Parameters
@@ -297,11 +288,12 @@ class PartitioningReporter:
             Calculated metrics for all partitionings stored in a dictionary with keys the numbers of partitions
             and values the dictionary with metrics.
         """
-        reports = {}
-        for name, partitioning in self.partitionings.items():
-            reports[name] = self.report_single_partitioning(
+        reports = {
+            name: self.report_single_partitioning(
                 partitioning, EDGE_IMB=True, VERTEX_IMB=True
             )
+            for name, partitioning in self.partitionings.items()
+        }
         k = len(self.partitionings[list(self.partitionings.keys())[0]][1])
         if visualize:
             plt.figure(
@@ -309,7 +301,7 @@ class PartitioningReporter:
             )
             ind = 1
             row_size = 3
-            size = int(len(reports[list(reports.keys())[0]]) / row_size) + 1
+            size = len(reports[list(reports.keys())[0]]) // row_size + 1
             for metric in reports[list(reports.keys())[0]]:
                 plot = False
                 dat = []
@@ -320,13 +312,10 @@ class PartitioningReporter:
                         if isinstance(reports[report][metric], list):
                             n = len(reports[report][metric])
                             color = iter(cm.seismic(np.linspace(0, 1, n)))
-                            colors = {
-                                "partition {}".format(i): next(color)
-                                for i in range(n)
-                            }
+                            colors = {f"partition {i}": next(color) for i in range(n)}
                             width = 0.8 / n
                             for i, r in enumerate(reports[report][metric]):
-                                label = "partition {}".format(i)
+                                label = f"partition {i}"
                                 dat.append(
                                     {
                                         "y": j + (i * width),
@@ -413,15 +402,14 @@ def compare_partitionings(
         n_partitions = num_partitions
     partitionings = {}
     for partitioner, n in zip(list_of_partitioners, n_partitions):
-        logger.debug("Running: {}".format(partitioner.__name__))
+        logger.debug(f"Running: {partitioner.__name__}")
         logs = {}
         if n != 0:
             data.reload()
         partitioner_fitted = partitioner(data, k=n, log=logs)
         partitionings[partitioner.__name__] = (partitioner_fitted, logs)
     reporter = PartitioningReporter(partitionings=partitionings)
-    result = reporter.report(visualize=visualize, barh=True)
-    return result
+    return reporter.report(visualize=visualize, barh=True)
 
 
 def main():
